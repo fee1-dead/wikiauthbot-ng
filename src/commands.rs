@@ -1,4 +1,4 @@
-use crate::{Context, Command, Result};
+use crate::{Command, Context, Result};
 
 mod auth;
 

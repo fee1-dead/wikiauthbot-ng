@@ -1,13 +1,23 @@
+[workspace]
+members = ["wikiauthbot-server"]
+
+[workspace.package]
+version = "0.1.0"
+rust-version = "1.74.0"
+edition = "2021"
+
 [package]
 name = "wikiauthbot-ng"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+rust-version.workspace = true
+edition.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 color-eyre = "0.6.2"
 poise = "0.6.1-rc"
+reqwest = { version = "0.11.22", default-features = false, features = ["tokio-rustls"] }
 serde = { version = "1.0.193", features = ["derive"] }
 tokio = { version = "1.35.0", features = ["rt-multi-thread"] }
 toml = { version = "0.8.8", default-features = false, features = ["parse"] }
