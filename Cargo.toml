@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 color-eyre = "0.6.2"
-poise = "0.6.0-rc"
+poise = "0.6.1-rc"
 serde = { version = "1.0.193", features = ["derive"] }
 tokio = { version = "1.35.0", features = ["rt-multi-thread"] }
 toml = { version = "0.8.8", default-features = false, features = ["parse"] }
