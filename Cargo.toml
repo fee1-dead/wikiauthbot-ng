@@ -1,0 +1,14 @@
+[package]
+name = "wikiauthbot-ng"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+poise = "0.6.0-rc"
+
+[dependencies.serenity]
+version = "0.12.0"
+default-features = false
+features = ["client", "model", "cache", "voice", "rustls_backend"]
