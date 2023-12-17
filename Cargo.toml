@@ -6,9 +6,14 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+color-eyre = "0.6.2"
 poise = "0.6.0-rc"
+serde = { version = "1.0.193", features = ["derive"] }
+tokio = { version = "1.35.0", features = ["rt-multi-thread"] }
+toml = { version = "0.8.8", default-features = false, features = ["parse"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
 [dependencies.serenity]
 version = "0.12.0"
 default-features = false
-features = ["client", "model", "cache", "voice", "rustls_backend"]
+features = ["client", "model", "cache", "rustls_backend"]
