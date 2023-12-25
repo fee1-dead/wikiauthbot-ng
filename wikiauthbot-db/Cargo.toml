@@ -7,3 +7,6 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+dotenvy.workspace = true
+sea-orm.workspace = true
+wikiauthbot-db-entity = { path = "entity" }

@@ -1,5 +1,5 @@
 /target
 /.direnv
 bot_config_secret.toml
-wikiauthbot-db/.env
+.env
 auth*.json

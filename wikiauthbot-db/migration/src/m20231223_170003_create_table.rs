@@ -17,7 +17,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Post::WikimediaId).unsigned().not_null().unique_key())
+                    .col(ColumnDef::new(Post::WikimediaId).unsigned().not_null())
                     .to_owned(),
             )
             .await
