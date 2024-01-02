@@ -4,12 +4,14 @@ use std::num::NonZeroU64;
 use serenity::all::{GatewayIntents, UserId};
 use serenity::client::ClientBuilder;
 use tracing_subscriber::EnvFilter;
+use wikiauthbot_db::{DatabaseConnection, Database};
 
 mod commands;
 mod logging;
 
 pub struct Data {
     client: reqwest::Client,
+    db: DatabaseConnection,
 }
 
 type Error = color_eyre::Report;
@@ -49,6 +51,7 @@ async fn main_inner() -> Result<()> {
             Box::pin(async {
                 Ok(Data {
                     client: reqwest::ClientBuilder::new().build()?,
+                    db: Database::connect().await?,
                 })
             })
         })

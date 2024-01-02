@@ -57,13 +57,15 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .from_col(Symbols::DiscordId)
-                            .to_tbl(Symbols::ServerSettings),
+                            .name("fk-accounts-discord_id")
+                            .from(Symbols::Accounts, Symbols::DiscordId)
+                            .to(Symbols::Auth, Symbols::DiscordId),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .from_col(Symbols::ServerId)
-                            .to_tbl(Symbols::ServerSettings),
+                            .name("fk-accounts-server_id")
+                            .from(Symbols::Accounts, Symbols::ServerId)
+                            .to(Symbols::ServerSettings, Symbols::ServerId),
                     )
                     .take(),
             )

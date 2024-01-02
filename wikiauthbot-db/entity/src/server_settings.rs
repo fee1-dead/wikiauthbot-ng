@@ -3,11 +3,14 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "auth")]
+#[sea_orm(table_name = "server_settings")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub discord_id: u64,
-    pub wikimedia_id: u32,
+    pub server_id: u64,
+    pub welcome_channel_id: u64,
+    pub auth_log_channel_id: u64,
+    pub deauth_log_channel_id: u64,
+    pub authenticated_role_id: u64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -22,12 +25,12 @@ impl Related<super::accounts::Entity> for Entity {
     }
 }
 
-impl Related<super::server_settings::Entity> for Entity {
+impl Related<super::auth::Entity> for Entity {
     fn to() -> RelationDef {
-        super::accounts::Relation::ServerSettings.def()
+        super::accounts::Relation::Auth.def()
     }
     fn via() -> Option<RelationDef> {
-        Some(super::accounts::Relation::Auth.def().rev())
+        Some(super::accounts::Relation::ServerSettings.def().rev())
     }
 }
 

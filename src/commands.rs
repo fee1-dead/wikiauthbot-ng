@@ -1,6 +1,7 @@
 use crate::{Command, Context, Result};
 
 mod auth;
+mod whois;
 
 #[poise::command(prefix_command)]
 pub async fn register(ctx: Context<'_>) -> Result {
@@ -14,5 +15,5 @@ pub async fn register(ctx: Context<'_>) -> Result {
 }
 
 pub fn all_commands() -> Vec<Command> {
-    vec![register(), auth::auth()]
+    vec![register(), auth::auth(), whois::whois()]
 }

@@ -1,6 +1,6 @@
-use sea_orm::{ActiveModelTrait, ActiveValue, DbErr, EntityTrait};
-use wikiauthbot_db_entity::auth;
-use wikiauthbot_db_entity::prelude::Auth;
+use sea_orm::{ActiveModelTrait, ActiveValue, DbErr, EntityTrait, QuerySelect, QueryFilter, ColumnTrait};
+use wikiauthbot_db_entity::{auth, server_settings, accounts};
+use wikiauthbot_db_entity::prelude::{Auth, Accounts, ServerSettings};
 
 pub struct Database {}
 
@@ -19,9 +19,8 @@ pub struct DatabaseConnection {
     inner: sea_orm::DatabaseConnection,
 }
 
-#[non_exhaustive]
 pub struct WhoisResult {
-    pub wikimedia_id: u64,
+    pub wikimedia_id: u32,
 }
 
 impl DatabaseConnection {
@@ -39,6 +38,7 @@ impl DatabaseConnection {
     }
 
     pub async fn whois(&self, discord_id: u64, discord_server_id: u64) -> Result<Option<WhoisResult>, DbErr> {
-        todo!()
+        let res = Auth::find_by_id(discord_id).inner_join(Accounts).filter(accounts::Column::ServerId.eq(discord_server_id)).one(&self.inner).await?;
+        Ok(res.map(|model| WhoisResult { wikimedia_id: model.wikimedia_id }))
     }
 }
