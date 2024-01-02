@@ -11,6 +11,8 @@ pub struct Model {
     pub auth_log_channel_id: u64,
     pub deauth_log_channel_id: u64,
     pub authenticated_role_id: u64,
+    pub server_language: String,
+    pub allow_banned_users: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
