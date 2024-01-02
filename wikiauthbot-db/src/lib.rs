@@ -19,6 +19,11 @@ pub struct DatabaseConnection {
     inner: sea_orm::DatabaseConnection,
 }
 
+#[non_exhaustive]
+pub struct WhoisResult {
+    pub wikimedia_id: u64,
+}
+
 impl DatabaseConnection {
     pub async fn find_user(&self, discord_id: u64) -> Result<Option<auth::Model>, DbErr> {
         Auth::find_by_id(discord_id).one(&self.inner).await
@@ -31,5 +36,9 @@ impl DatabaseConnection {
         .insert(&self.inner)
         .await?;
         Ok(())
+    }
+
+    pub async fn whois(&self, discord_id: u64, discord_server_id: u64) -> Result<Option<WhoisResult>, DbErr> {
+        todo!()
     }
 }

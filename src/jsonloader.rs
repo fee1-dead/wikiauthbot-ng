@@ -20,7 +20,7 @@ async fn main_inner() -> Result<(), Box<dyn std::error::Error>> {
     let db2 = db.clone();
 
     let a = tokio::task::spawn(async move {
-        for u in auth {
+        for u in auth.into_iter().skip(4399) {
             match db.find_user(u.id).await {
                 Ok(Some(_)) => continue,
                 Ok(None) => send_1.send(u).await.unwrap(),
@@ -71,7 +71,7 @@ async fn main_inner() -> Result<(), Box<dyn std::error::Error>> {
             let id = res.try_get_by::<i32, _>("gu_id").unwrap();
             send_2.send((u.id, id as u32)).await.unwrap();
         }
-        serde_json::to_writer(File::create("errored.json").unwrap(), &failed).unwrap();
+        serde_json::to_writer(File::create("errored2.json").unwrap(), &failed).unwrap();
     });
 
     let c = tokio::task::spawn(async move {

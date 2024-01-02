@@ -1,5 +1,7 @@
 use sea_orm_migration::prelude::*;
 
+use crate::Symbols;
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -9,15 +11,15 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(Post::Auth)
+                    .table(Symbols::Auth)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(Post::DiscordId)
+                        ColumnDef::new(Symbols::DiscordId)
                             .big_unsigned()
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Post::WikimediaId).unsigned().not_null())
+                    .col(ColumnDef::new(Symbols::WikimediaId).unsigned().not_null())
                     .to_owned(),
             )
             .await
@@ -25,14 +27,7 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(Post::Auth).to_owned())
+            .drop_table(Table::drop().table(Symbols::Auth).to_owned())
             .await
     }
-}
-
-#[derive(DeriveIden)]
-enum Post {
-    Auth,
-    DiscordId,
-    WikimediaId,
 }

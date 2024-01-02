@@ -6,6 +6,7 @@ use serenity::client::ClientBuilder;
 use tracing_subscriber::EnvFilter;
 
 mod commands;
+mod logging;
 
 pub struct Data {
     client: reqwest::Client,
