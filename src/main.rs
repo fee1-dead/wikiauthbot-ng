@@ -4,13 +4,14 @@ use std::num::NonZeroU64;
 use serenity::all::{GatewayIntents, UserId};
 use serenity::client::ClientBuilder;
 use tracing_subscriber::EnvFilter;
-use wikiauthbot_db::{DatabaseConnection, Database};
+use wikiauthbot_db::{Database, DatabaseConnection};
 
 mod commands;
 mod logging;
 
 pub struct Data {
-    client: reqwest::Client,
+    // todo: we might want to support multiple CentralAuth instances
+    client: mwapi::Client,
     db: DatabaseConnection,
 }
 
@@ -50,7 +51,10 @@ async fn main_inner() -> Result<()> {
         .setup(|_ctx, _ready, _framework| {
             Box::pin(async {
                 Ok(Data {
-                    client: reqwest::ClientBuilder::new().build()?,
+                    client: mwapi::Client::builder("https://en.wikipedia.org/w/api.php")
+                        .set_user_agent(concat!("wikiauthbot-ng/{}", env!("CARGO_PKG_VERSION")))
+                        .build()
+                        .await?,
                     db: Database::connect().await?,
                 })
             })

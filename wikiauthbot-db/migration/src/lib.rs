@@ -2,6 +2,7 @@ pub use sea_orm_migration::prelude::*;
 
 mod m20231223_170003_create_table;
 mod m20231226_043934_create_accounts_table;
+mod m20240102_152634_update_server_settings_table;
 
 pub struct Migrator;
 
@@ -11,6 +12,7 @@ impl MigratorTrait for Migrator {
         vec![
             Box::new(m20231223_170003_create_table::Migration),
             Box::new(m20231226_043934_create_accounts_table::Migration),
+            Box::new(m20240102_152634_update_server_settings_table::Migration),
         ]
     }
 }
@@ -27,4 +29,6 @@ pub(crate) enum Symbols {
     AuthLogChannelId,
     DeauthLogChannelId,
     AuthenticatedRoleId,
+    ServerLanguage,
+    AllowBannedUsers,
 }

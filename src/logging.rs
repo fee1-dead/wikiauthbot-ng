@@ -9,5 +9,3 @@ pub enum LogEventKind {
     /// Message when someone deauthenticates
     Deauth,
 }
-
-

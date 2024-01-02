@@ -74,8 +74,11 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager.drop_table(Table::drop().table(Symbols::ServerSettings).take())
+        manager
+            .drop_table(Table::drop().table(Symbols::ServerSettings).take())
             .await?;
-        manager.drop_table(Table::drop().table(Symbols::Accounts).take()).await
+        manager
+            .drop_table(Table::drop().table(Symbols::Accounts).take())
+            .await
     }
 }
