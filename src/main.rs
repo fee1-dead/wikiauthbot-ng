@@ -50,13 +50,15 @@ async fn main_inner() -> Result<()> {
     let framework = poise::FrameworkBuilder::default()
         .setup(|_ctx, _ready, _framework| {
             Box::pin(async {
-                Ok(Data {
+                let data = Data {
                     client: mwapi::Client::builder("https://en.wikipedia.org/w/api.php")
                         .set_user_agent(concat!("wikiauthbot-ng/{}", env!("CARGO_PKG_VERSION")))
                         .build()
                         .await?,
                     db: Database::connect().await?,
-                })
+                };
+                println!("data setup complete");
+                Ok(data)
             })
         })
         .options(poise::FrameworkOptions {

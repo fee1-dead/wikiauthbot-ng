@@ -15,5 +15,5 @@ pub async fn register(ctx: Context<'_>) -> Result {
 }
 
 pub fn all_commands() -> Vec<Command> {
-    vec![register(), auth::auth(), whois::whois()]
+    vec![register(), auth::auth(), whois::whois(), whois::whois_test()]
 }

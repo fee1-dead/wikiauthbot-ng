@@ -1,4 +1,7 @@
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, DbErr, EntityTrait, QueryFilter, Schema, DbBackend, ConnectionTrait};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DbBackend, DbErr, EntityTrait,
+    QueryFilter, Schema,
+};
 use wikiauthbot_db_entity::prelude::{Accounts, Auth, ServerSettings};
 use wikiauthbot_db_entity::{accounts, auth};
 
@@ -27,7 +30,7 @@ impl Database {
         }
 
         let conn = DatabaseConnection { inner: db };
-        
+
         Ok(conn)
     }
 }
