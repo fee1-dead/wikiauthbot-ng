@@ -1,10 +1,11 @@
 use std::fs;
 use std::num::NonZeroU64;
 
-use serenity::all::{GatewayIntents, UserId};
-use serenity::client::ClientBuilder;
+use dashmap::DashMap;
+use serenity::all::{GatewayIntents, UserId, GuildId};
+use serenity::client::{ClientBuilder, FullEvent};
 use tracing_subscriber::EnvFilter;
-use wikiauthbot_db::{Database, DatabaseConnection};
+use wikiauthbot_db::{Database, DatabaseConnection, ServerSettingsData};
 
 mod commands;
 mod logging;
@@ -13,6 +14,7 @@ pub struct Data {
     // todo: we might want to support multiple CentralAuth instances
     client: mwapi::Client,
     db: DatabaseConnection,
+    server_settings: DashMap<GuildId, ServerSettingsData>,
 }
 
 type Error = color_eyre::Report;
@@ -38,25 +40,34 @@ fn main() -> Result<()> {
         .block_on(main_inner())
 }
 
-async fn main_inner() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
+async fn event_handler(
+    ctx: &serenity::all::Context,
+    event: &FullEvent,
+    ftx: poise::FrameworkContext<'_, Data, Error>,
+    u: &Data,
+) -> Result {
+    Ok(())
+}
 
+async fn bot_start() -> Result<()> {
     let PublicCfg { owners } = toml::from_str(&fs::read_to_string("./bot_config.toml")?)?;
     let PrivateCfg { token } = toml::from_str(&fs::read_to_string("./bot_config_secret.toml")?)?;
 
     let framework = poise::FrameworkBuilder::default()
         .setup(|_ctx, _ready, _framework| {
             Box::pin(async {
-                Ok(Data {
+                let db = Database::connect().await?;
+                let settings = db.get_all_server_settings().await?;
+                let data = Data {
                     client: mwapi::Client::builder("https://en.wikipedia.org/w/api.php")
                         .set_user_agent(concat!("wikiauthbot-ng/{}", env!("CARGO_PKG_VERSION")))
                         .build()
                         .await?,
-                    db: Database::connect().await?,
-                })
+                    db,
+                    server_settings: settings.map(|(guild_id, data)| (GuildId::new(guild_id), data)).collect(),
+                };
+                println!("data setup complete");
+                Ok(data)
             })
         })
         .options(poise::FrameworkOptions {
@@ -66,6 +77,9 @@ async fn main_inner() -> Result<()> {
                 prefix: Some("~".into()),
                 ..Default::default()
             },
+            event_handler: |ctx, event, framework, data| {
+                Box::pin(event_handler(ctx, event, framework, data))
+            },
             ..Default::default()
         })
         .build();
@@ -74,6 +88,22 @@ async fn main_inner() -> Result<()> {
     let client = ClientBuilder::new(token, intents)
         .framework(framework)
         .await;
-    client?.start().await?;
+    Ok(client?.start().await?)
+}
+
+async fn main_inner() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
+
+
+    let (new_auth_reqs_send, new_auth_reqs_recv) = tokio::sync::mpsc::channel(10);
+    let (successful_auths_send, successful_auths_recv) = tokio::sync::mpsc::channel(10);
+
+    let h1 = tokio::spawn(bot_start());
+    let h2 = tokio::spawn(wikiauthbot_server::start(new_auth_reqs_recv, successful_auths_send));
+
+    
     Ok(())
 }
