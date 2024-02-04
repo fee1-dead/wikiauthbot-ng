@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use actix_web::dev::Server;
 use actix_web::http::StatusCode;
 use actix_web::{get, web, App, HttpServer, Responder, HttpResponseBuilder};
 use dashmap::DashMap;
@@ -37,14 +38,16 @@ async fn authorize(web::Query(AuthRequest {
     }
 
 
+
     todo!()
 }
 
+#[must_use]
 pub async fn start(
     mut new_auth_reqs: Receiver<([u8; 28], u64)>,
     // when we are done verifying the auth request, return discord user id, global user id, and current username.
     successful_auths: Sender<(u64, u32, String)>,
-) -> std::io::Result<()> {
+) -> std::io::Result<Server> {
     let state = Arc::new(State {
         in_progress: DashMap::new(),
         successful_auths,
@@ -61,8 +64,8 @@ pub async fn start(
             });
         }
     });
-    HttpServer::new(move || App::new().app_data(state.clone()).service(authorize))
+    let server = HttpServer::new(move || App::new().app_data(state.clone()).service(authorize))
         .bind(("127.0.0.1", 8080))?
-        .run()
-        .await
+        .run();
+    Ok(server)
 }

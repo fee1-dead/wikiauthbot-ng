@@ -4,6 +4,7 @@ use std::num::NonZeroU64;
 use dashmap::DashMap;
 use serenity::all::{GatewayIntents, UserId, GuildId};
 use serenity::client::{ClientBuilder, FullEvent};
+use tokio::sync::mpsc::{Receiver, Sender};
 use tracing_subscriber::EnvFilter;
 use wikiauthbot_db::{Database, DatabaseConnection, ServerSettingsData};
 
@@ -15,6 +16,7 @@ pub struct Data {
     client: mwapi::Client,
     db: DatabaseConnection,
     server_settings: DashMap<GuildId, ServerSettingsData>,
+    new_auth_reqs_send: Sender<([u8; 28], u64)>,
 }
 
 type Error = color_eyre::Report;
@@ -49,7 +51,7 @@ async fn event_handler(
     Ok(())
 }
 
-async fn bot_start() -> Result<()> {
+async fn bot_start(new_auth_reqs_send: Sender<([u8; 28], u64)>, successful_auths_recv: Receiver<(u64, u32, String)>) -> Result<()> {
     let PublicCfg { owners } = toml::from_str(&fs::read_to_string("./bot_config.toml")?)?;
     let PrivateCfg { token } = toml::from_str(&fs::read_to_string("./bot_config_secret.toml")?)?;
 
@@ -65,6 +67,7 @@ async fn bot_start() -> Result<()> {
                         .await?,
                     db,
                     server_settings: settings.map(|(guild_id, data)| (GuildId::new(guild_id), data)).collect(),
+                    new_auth_reqs_send,
                 };
                 println!("data setup complete");
                 Ok(data)
@@ -101,8 +104,11 @@ async fn main_inner() -> Result<()> {
     let (new_auth_reqs_send, new_auth_reqs_recv) = tokio::sync::mpsc::channel(10);
     let (successful_auths_send, successful_auths_recv) = tokio::sync::mpsc::channel(10);
 
-    let h1 = tokio::spawn(bot_start());
-    let h2 = tokio::spawn(wikiauthbot_server::start(new_auth_reqs_recv, successful_auths_send));
+    let h1 = tokio::spawn(bot_start(new_auth_reqs_send, successful_auths_recv));
+    let h2 = tokio::spawn(async {
+        wikiauthbot_server::start(new_auth_reqs_recv, successful_auths_send).await?.await?;
+        Result::<_, Error>::Ok(())
+    });
 
     
     Ok(())

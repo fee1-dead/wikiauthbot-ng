@@ -180,7 +180,7 @@ impl WhoisInfo {
 
 #[poise::command(slash_command, guild_only = true)]
 pub async fn whois_test(ctx: Context<'_>, name: String) -> Result {
-    let crate::Data { client, db: _, server_settings: _ } = ctx.data();
+    let crate::Data { client, .. } = ctx.data();
     ctx.defer().await?;
 
     let v = client
@@ -208,7 +208,7 @@ pub async fn whois(
     ctx: Context<'_>,
     #[description = "User to check, leave blank for yourself"] user: Option<UserId>,
 ) -> Result {
-    let crate::Data { client, db, server_settings: _ } = ctx.data();
+    let crate::Data { client, db, .. } = ctx.data();
     ctx.defer_ephemeral().await?;
 
     let user = user.unwrap_or_else(|| ctx.author().id).get();
