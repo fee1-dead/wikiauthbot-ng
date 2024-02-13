@@ -1,12 +1,13 @@
 use std::fs;
 use std::num::NonZeroU64;
+use std::sync::Arc;
 
 use dashmap::DashMap;
 use serenity::all::{GatewayIntents, GuildId, UserId};
 use serenity::client::{ClientBuilder, FullEvent};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tracing_subscriber::EnvFilter;
-use wikiauthbot_common::{AuthRequest, PublicCfg, PrivateCfg};
+use wikiauthbot_common::{AuthRequest, Config, SuccessfulAuth};
 use wikiauthbot_db::{Database, DatabaseConnection, ServerSettingsData};
 
 mod commands;
@@ -17,7 +18,9 @@ pub struct Data {
     client: mwapi::Client,
     db: DatabaseConnection,
     server_settings: DashMap<GuildId, ServerSettingsData>,
+    ongoing_auth_requests: Arc<DashMap<UserId, serenity::all::MessageId>>,
     new_auth_reqs_send: Sender<AuthRequest>,
+    config: &'static Config,
 }
 
 type Error = color_eyre::Report;
@@ -45,11 +48,9 @@ async fn event_handler(
 
 async fn bot_start(
     new_auth_reqs_send: Sender<AuthRequest>,
-    successful_auths_recv: Receiver<(u64, u32, String)>,
+    successful_auths_recv: Receiver<SuccessfulAuth>,
 ) -> Result<()> {
-    let PublicCfg { owners } = PublicCfg::read()?;
-    let PrivateCfg { discord_bot_token } = PrivateCfg::read()?;
-
+    let config = Config::get()?;
     let framework = poise::FrameworkBuilder::default()
         .setup(|_ctx, _ready, _framework| {
             Box::pin(async {
@@ -60,11 +61,13 @@ async fn bot_start(
                         .set_user_agent(concat!("wikiauthbot-ng/{}", env!("CARGO_PKG_VERSION")))
                         .build()
                         .await?,
+                    config,
                     db,
-                    server_settings: settings
-                        .map(|(guild_id, data)| (GuildId::new(guild_id), data))
-                        .collect(),
                     new_auth_reqs_send,
+                    ongoing_auth_requests: Arc::default(),
+                    server_settings: settings
+                    .map(|(guild_id, data)| (GuildId::new(guild_id), data))
+                    .collect(),
                 };
                 println!("data setup complete");
                 Ok(data)
@@ -72,7 +75,7 @@ async fn bot_start(
         })
         .options(poise::FrameworkOptions {
             commands: commands::all_commands(),
-            owners: owners.into_iter().map(UserId::from).collect(),
+            owners: config.bot_owners.iter().copied().map(UserId::from).collect(),
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some("~".into()),
                 ..Default::default()
@@ -85,7 +88,7 @@ async fn bot_start(
         .build();
 
     let intents = GatewayIntents::non_privileged() | GatewayIntents::GUILD_MEMBERS;
-    let client = ClientBuilder::new(discord_bot_token, intents)
+    let client = ClientBuilder::new(config.discord_bot_token.clone(), intents)
         .framework(framework)
         .await;
     Ok(client?.start().await?)

@@ -33,6 +33,16 @@ impl AuthRequest {
 
         HexFmt(self.id)
     }
+
+    pub fn into_successful(self, central_user_id: u32, username: Box<str>) -> SuccessfulAuth {
+        SuccessfulAuth { discord_user_id: self.discord_user_id, central_user_id, username }
+    }
+}
+
+pub struct SuccessfulAuth {
+    discord_user_id: u64,
+    central_user_id: u32,
+    username: Box<str>,
 }
 
 pub struct AuthRequestsMap {
