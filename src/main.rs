@@ -1,5 +1,3 @@
-use std::fs;
-use std::num::NonZeroU64;
 use std::sync::Arc;
 
 use dashmap::DashMap;
@@ -18,7 +16,7 @@ pub struct Data {
     client: mwapi::Client,
     db: DatabaseConnection,
     server_settings: DashMap<GuildId, ServerSettingsData>,
-    ongoing_auth_requests: Arc<DashMap<UserId, serenity::all::MessageId>>,
+    ongoing_auth_requests: Arc<DashMap<UserId, String>>,
     new_auth_reqs_send: Sender<AuthRequest>,
     config: &'static Config,
 }
@@ -103,19 +101,15 @@ async fn main_inner() -> Result<()> {
     let (new_auth_reqs_send, new_auth_reqs_recv) = tokio::sync::mpsc::channel(10);
     let (successful_auths_send, successful_auths_recv) = tokio::sync::mpsc::channel(10);
 
-    let h1 = tokio::spawn(bot_start(new_auth_reqs_send, successful_auths_recv));
-    let h2 = tokio::spawn(async {
+    tokio::spawn(bot_start(new_auth_reqs_send, successful_auths_recv));
+    tokio::spawn(async {
         wikiauthbot_server::start(new_auth_reqs_recv, successful_auths_send)
             .await?
             .await?;
         Result::<_, Error>::Ok(())
     });
 
-    let (h1, h2) = tokio::join!(h1, h2);
-
-    // really question the results
-    h1??;
-    h2??;
+    tokio::signal::ctrl_c().await?;
 
     Ok(())
 }
