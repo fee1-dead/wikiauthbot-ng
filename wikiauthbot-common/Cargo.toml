@@ -7,5 +7,9 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+color-eyre.workspace = true
 tokio = { version = "1.35.1", features = ["sync"] }
 dashmap = "5.5.3"
+rand = "0.8.5"
+serde.workspace = true
+toml = { version = "0.8.8", default-features = false, features = ["parse"] }

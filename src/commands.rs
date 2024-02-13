@@ -38,16 +38,18 @@ pub async fn setup_server(
         ctx.reply("F: server already set up").await?;
         return Ok(());
     }
-    
+
     if !allow_banned_users {
         // TODO
-        ctx.reply("F: disallowing banned users is not yet implemented").await?;
+        ctx.reply("F: disallowing banned users is not yet implemented")
+            .await?;
         return Ok(());
     }
 
     if server_language != "en" {
         // TODO
-        ctx.reply("F: non-English languages are not yet implemented").await?;
+        ctx.reply("F: non-English languages are not yet implemented")
+            .await?;
         return Ok(());
     }
 
@@ -70,7 +72,11 @@ pub async fn setup_server(
         allow_banned_users,
     };
 
-    if !ctx.data().db.set_server_settings(guild_id.get(), data.clone()).await?
+    if !ctx
+        .data()
+        .db
+        .set_server_settings(guild_id.get(), data.clone())
+        .await?
     {
         ctx.reply("F: server already set up").await?;
         return Ok(());

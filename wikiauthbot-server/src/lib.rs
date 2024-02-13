@@ -1,15 +1,17 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
 
 use actix_web::dev::Server;
 use actix_web::http::StatusCode;
-use actix_web::{get, web, App, HttpServer, Responder, HttpResponseBuilder};
+use actix_web::{get, web, App, HttpResponseBuilder, HttpServer, Responder};
 use dashmap::DashMap;
 use tokio::sync::mpsc::{Receiver, Sender};
+use reqwest::{Client, ClientBuilder};
+use wikiauthbot_common::{AuthRequest, AuthRequestsMap};
 
 #[derive(serde::Deserialize)]
-struct AuthRequest {
+struct AuthRequestQuery {
     state: String,
     error: Option<String>,
     error_description: Option<String>,
@@ -18,50 +20,59 @@ struct AuthRequest {
 }
 
 struct State {
-    // key: random state, value: discord user id
-    in_progress: DashMap<[u8; 28], u64>,
+    in_progress: AuthRequestsMap,
+    client: Client,
     // when we are done verifying the auth request, return discord user id, global user id, and current username.
     successful_auths: Sender<(u64, u32, String)>,
 }
 
 #[get("/authorize")]
-async fn authorize(web::Query(AuthRequest {
-    state,
-    error,
-    error_description,
-    message,
-    code,
-}): web::Query<AuthRequest>) -> impl Responder {
+async fn authorize(
+    web::Query(AuthRequestQuery {
+        state,
+        error,
+        error_description,
+        message,
+        code,
+    }): web::Query<AuthRequestQuery>,
+    app_state: web::Data<State>,
+) -> impl Responder {
     if let Some(error) = error {
         let message = message.or(error_description).unwrap_or(error);
         return HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body(format!("Error: {message}"));
     }
 
+    let Some(auth_req) = app_state.in_progress.get_auth_req(&state) else {
+        return HttpResponseBuilder::new(StatusCode::NOT_FOUND)
+            .body(format!("Auth request was expired or invalid"));
+    };
 
+    let mut params = &[
+        ("grant_type", "authorization_code"),
+        ("code", &code),
+
+    ];
+
+    app_state.client.post("https://meta.wikimedia.org/w/rest.php/oauth2/access_token").form(params).send().await;
 
     todo!()
 }
 
 #[must_use]
 pub async fn start(
-    mut new_auth_reqs: Receiver<([u8; 28], u64)>,
+    mut new_auth_reqs: Receiver<AuthRequest>,
     // when we are done verifying the auth request, return discord user id, global user id, and current username.
     successful_auths: Sender<(u64, u32, String)>,
-) -> std::io::Result<Server> {
+) -> color_eyre::Result<Server> {
     let state = Arc::new(State {
-        in_progress: DashMap::new(),
+        in_progress: AuthRequestsMap::new(),
+        client: ClientBuilder::new().build()?,
         successful_auths,
     });
     let state2 = state.clone();
     tokio::spawn(async move {
-        while let Some((state, user_id)) = new_auth_reqs.recv().await {
-            state2.in_progress.insert(state, user_id);
-            let st = state2.clone();
-            tokio::spawn(async move {
-                // 30 minutes timeout
-                tokio::time::sleep(Duration::from_secs(60 * 30)).await;
-                st.in_progress.remove(&state)
-            });
+        while let Some(auth) = new_auth_reqs.recv().await {
+            state2.in_progress.add_auth_req(auth);
         }
     });
     let server = HttpServer::new(move || App::new().app_data(state.clone()).service(authorize))

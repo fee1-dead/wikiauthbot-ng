@@ -86,33 +86,33 @@ impl DatabaseConnection {
         ))
     }
 
-    pub async fn get_all_server_settings(&self) -> Result<impl Iterator<Item = (u64, ServerSettingsData)>, DbErr> {
+    pub async fn get_all_server_settings(
+        &self,
+    ) -> Result<impl Iterator<Item = (u64, ServerSettingsData)>, DbErr> {
         let models = ServerSettings::find().all(&self.inner).await?;
-        Ok(models
-            .into_iter()
-            .map(
-                |server_settings::Model {
-                     server_id,
-                     welcome_channel_id,
-                     auth_log_channel_id,
-                     deauth_log_channel_id,
-                     authenticated_role_id,
-                     server_language,
-                     allow_banned_users,
-                 }| {
-                    (
-                        server_id,
-                        ServerSettingsData {
-                            welcome_channel_id,
-                            auth_log_channel_id,
-                            deauth_log_channel_id,
-                            authenticated_role_id,
-                            server_language,
-                            allow_banned_users,
-                        },
-                    )
-                },
-            ))
+        Ok(models.into_iter().map(
+            |server_settings::Model {
+                 server_id,
+                 welcome_channel_id,
+                 auth_log_channel_id,
+                 deauth_log_channel_id,
+                 authenticated_role_id,
+                 server_language,
+                 allow_banned_users,
+             }| {
+                (
+                    server_id,
+                    ServerSettingsData {
+                        welcome_channel_id,
+                        auth_log_channel_id,
+                        deauth_log_channel_id,
+                        authenticated_role_id,
+                        server_language,
+                        allow_banned_users,
+                    },
+                )
+            },
+        ))
     }
 
     pub async fn get_server_settings(
