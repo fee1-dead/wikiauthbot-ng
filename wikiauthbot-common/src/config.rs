@@ -24,7 +24,9 @@ struct PrivateCfg {
 
 impl PrivateCfg {
     fn read() -> Result<PrivateCfg> {
-        Ok(toml::from_str(&fs::read_to_string("./config_secret.toml")?)?)
+        Ok(toml::from_str(&fs::read_to_string(
+            "./config_secret.toml",
+        )?)?)
     }
 }
 
@@ -45,8 +47,14 @@ impl Config {
                 // note that if multiple threads try to do this the same time, we'd just be reading the same file
                 // multiple times, which is fine, because we can do redundant work without doing data race
                 // which is bad >:(
-                let PublicCfg { bot_owners, oauth_consumer_key } = PublicCfg::read()?;
-                let PrivateCfg { discord_bot_token, oauth_client_secret } = PrivateCfg::read()?;
+                let PublicCfg {
+                    bot_owners,
+                    oauth_consumer_key,
+                } = PublicCfg::read()?;
+                let PrivateCfg {
+                    discord_bot_token,
+                    oauth_client_secret,
+                } = PrivateCfg::read()?;
                 let cfg = Config {
                     bot_owners,
                     discord_bot_token,

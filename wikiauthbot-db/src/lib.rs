@@ -35,6 +35,7 @@ impl Database {
     }
 }
 
+#[derive(Clone)]
 pub struct DatabaseConnection {
     inner: sea_orm::DatabaseConnection,
 }
@@ -66,6 +67,31 @@ impl DatabaseConnection {
         .insert(&self.inner)
         .await?;
         Ok(())
+    }
+
+    pub async fn add_user_authenticated_in_server(
+        &self,
+        discord_id: u64,
+        guild_id: u64,
+    ) -> Result<(), DbErr> {
+        wikiauthbot_db_entity::accounts::ActiveModel {
+            discord_id: ActiveValue::Set(discord_id),
+            server_id: ActiveValue::Set(guild_id),
+        }
+        .insert(&self.inner)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn is_user_authenticated_in_server(
+        &self,
+        discord_id: u64,
+        guild_id: u64,
+    ) -> Result<bool, DbErr> {
+        Accounts::find_by_id((discord_id, guild_id))
+            .one(&self.inner)
+            .await
+            .map(|x| x.is_some())
     }
 
     pub async fn whois(

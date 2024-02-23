@@ -3,8 +3,8 @@ use std::sync::Arc;
 use actix_web::dev::Server;
 use actix_web::http::StatusCode;
 use actix_web::{get, web, App, HttpResponseBuilder, HttpServer, Responder};
-use tokio::sync::mpsc::{Receiver, Sender};
 use reqwest::{Client, ClientBuilder};
+use tokio::sync::mpsc::{Receiver, Sender};
 use wikiauthbot_common::{AuthRequest, AuthRequestsMap, Config, SuccessfulAuth};
 
 #[derive(serde::Deserialize)]
@@ -34,7 +34,7 @@ struct State {
     in_progress: AuthRequestsMap,
     client: Client,
     // when we are done verifying the auth request, return discord user id, global user id, and current username.
-    successful_auths: Sender<SuccessfulAuth>,
+    successful_auths: Arc<Sender<SuccessfulAuth>>,
     config: &'static Config,
 }
 
@@ -47,7 +47,7 @@ async fn authorize(
         message,
         code,
     }): web::Query<AuthRequestQuery>,
-    app_state: web::Data<State>,
+    app_state: web::Data<Arc<State>>,
 ) -> impl Responder {
     if let Some(error) = error {
         let message = message.or(error_description).unwrap_or(error);
@@ -66,7 +66,13 @@ async fn authorize(
         ("client_secret", &app_state.config.oauth_client_secret),
     ];
 
-    let Ok(res) = app_state.client.post("https://meta.wikimedia.org/w/rest.php/oauth2/access_token").form(params).send().await else {
+    let Ok(res) = app_state
+        .client
+        .post("https://meta.wikimedia.org/w/rest.php/oauth2/access_token")
+        .form(params)
+        .send()
+        .await
+    else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
             .body("error while communicating with wikimedia server");
     };
@@ -76,7 +82,13 @@ async fn authorize(
             .body("error while getting access token from server");
     };
 
-    let Ok(res) = app_state.client.get("https://meta.wikimedia.org/w/rest.php/oauth2/resource/profile").header("Authorization", format!("Bearer {access_token}")).send().await else {
+    let Ok(res) = app_state
+        .client
+        .get("https://meta.wikimedia.org/w/rest.php/oauth2/resource/profile")
+        .header("Authorization", format!("Bearer {access_token}"))
+        .send()
+        .await
+    else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
             .body("error while retrieving user profile");
     };
@@ -89,17 +101,18 @@ async fn authorize(
     let success = auth_req.into_successful(sub, username);
     let Ok(()) = app_state.successful_auths.send(success).await else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-        .body("failed to deliver successful auth request :(");
+            .body("failed to deliver successful auth request :(");
     };
 
-    HttpResponseBuilder::new(StatusCode::OK).body("Success! Authorization information sent to the bot :)")
+    HttpResponseBuilder::new(StatusCode::OK)
+        .body("Success! Authorization information sent to the bot :)")
 }
 
 #[must_use]
 pub async fn start(
     mut new_auth_reqs: Receiver<AuthRequest>,
     // when we are done verifying the auth request, return discord user id, global user id, and current username.
-    successful_auths: Sender<SuccessfulAuth>,
+    successful_auths: Arc<Sender<SuccessfulAuth>>,
 ) -> color_eyre::Result<Server> {
     let state = Arc::new(State {
         in_progress: AuthRequestsMap::new(),
@@ -114,8 +127,12 @@ pub async fn start(
             state2.in_progress.add_auth_req(auth);
         }
     });
-    let server = HttpServer::new(move || App::new().app_data(state.clone()).service(authorize))
-        .bind(("127.0.0.1", 8080))?
-        .run();
+    let server = HttpServer::new(move || {
+        App::new()
+            .app_data(web::Data::new(state.clone()))
+            .service(authorize)
+    })
+    .bind(("127.0.0.1", 8080))?
+    .run();
     Ok(server)
 }

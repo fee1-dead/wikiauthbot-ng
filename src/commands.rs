@@ -17,7 +17,7 @@ pub async fn register(ctx: Context<'_>) -> Result {
     Ok(())
 }
 
-#[poise::command(slash_command, owners_only, dm_only, hide_in_help)]
+#[poise::command(prefix_command, owners_only, dm_only, hide_in_help)]
 pub async fn setup_server(
     ctx: Context<'_>,
     guild_id: GuildId,
@@ -59,7 +59,7 @@ pub async fn setup_server(
     };
 
     if members.len() != 1 {
-        ctx.reply("F: expected exactly one member").await?;
+        ctx.reply("F: members check failed").await?;
         return Ok(());
     }
 
@@ -95,6 +95,6 @@ pub fn all_commands() -> Vec<Command> {
         setup_server(),
         auth::auth(),
         whois::whois(),
-        whois::whois_test(),
+        // whois::whois_test(),
     ]
 }

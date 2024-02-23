@@ -4142,6 +4142,7 @@ dependencies = [
  "serde_json",
  "serenity",
  "tokio",
+ "tracing",
  "tracing-subscriber",
  "url",
  "wikiauthbot-common",
