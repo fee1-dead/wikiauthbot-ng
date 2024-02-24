@@ -31,7 +31,7 @@ pub async fn auth(ctx: Context<'_>) -> Result {
     let guild_id = ctx.guild_id().unwrap();
 
     if db
-        .is_user_authenticated_in_server(user_id.get(), guild_id.get())
+        .is_user_authed_in_server(user_id.get(), guild_id.get())
         .await?
     {
         ctx.reply("You are already authenticated to this server. No need to authenticate again.")
@@ -40,12 +40,12 @@ pub async fn auth(ctx: Context<'_>) -> Result {
         return Ok(());
     }
 
-    if let Some(user) = db.find_user(user_id.get()).await? {
+    if let Some(wikimedia_id) = db.get_wikimedia_id(user_id.get()).await? {
         let mut val: Value = client
             .get([
                 ("action", "query"),
                 ("meta", "globaluserinfo"),
-                ("guiid", &user.wikimedia_id.to_string()),
+                ("guiid", &wikimedia_id.to_string()),
             ])
             .await?;
         let Value::String(name) = val["query"]["globaluserinfo"]["name"].take() else {
@@ -80,7 +80,7 @@ pub async fn auth(ctx: Context<'_>) -> Result {
                             .send(SuccessfulAuth {
                                 discord_user_id: user_id.into(),
                                 guild_id: guild_id.into(),
-                                central_user_id: user.wikimedia_id,
+                                central_user_id: wikimedia_id,
                                 username: name.into_boxed_str(),
                                 brand_new: false,
                             })

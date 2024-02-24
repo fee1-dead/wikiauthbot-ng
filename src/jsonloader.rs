@@ -1,3 +1,5 @@
+// historical file that loads the old json data and inserts it into the database.
+
 use std::fs::File;
 use std::sync::Arc;
 

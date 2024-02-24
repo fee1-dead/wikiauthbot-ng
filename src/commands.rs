@@ -34,11 +34,6 @@ pub async fn setup_server(
         return Ok(());
     }
 
-    if ctx.data().server_settings.contains_key(&guild_id) {
-        ctx.reply("F: server already set up").await?;
-        return Ok(());
-    }
-
     if !allow_banned_users {
         // TODO
         ctx.reply("F: disallowing banned users is not yet implemented")
@@ -72,17 +67,14 @@ pub async fn setup_server(
         allow_banned_users,
     };
 
-    if !ctx
-        .data()
-        .db
-        .set_server_settings(guild_id.get(), data.clone())
-        .await?
-    {
+    let db = &ctx.data().db;
+
+    if db.has_server_settings(guild_id.get()).await? {
         ctx.reply("F: server already set up").await?;
         return Ok(());
     }
 
-    ctx.data().server_settings.insert(guild_id, data);
+    db.set_server_settings(guild_id.get(), data).await?;
 
     ctx.reply("Setup server").await?;
 

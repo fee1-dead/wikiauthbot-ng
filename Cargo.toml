@@ -2,8 +2,7 @@
 members = [
     "wikiauthbot-server",
     "wikiauthbot-db",
-    "wikiauthbot-db/migration",
-    "wikiauthbot-db/entity", "wikiauthbot-common",
+    "wikiauthbot-common",
 ]
 
 [workspace.package]
@@ -16,6 +15,8 @@ sea-orm = { version = "0.12.10", features = [ "sqlx-mysql", "runtime-tokio-rustl
 dotenvy = "0.15.7"
 serde = { version = "1.0.193", features = ["derive"] }
 color-eyre = "0.6.2"
+fred = "8.0.3"
+
 
 [package]
 name = "wikiauthbot-ng"
@@ -32,6 +33,7 @@ dashmap = "5.5.3"
 dotenvy.workspace = true
 mwapi = "0.6.0"
 poise = "0.6.1-rc"
+fred.workspace = true
 reqwest = { version = "0.11.22", default-features = false, features = ["tokio-rustls", "json"] }
 sea-orm.workspace = true
 serde.workspace = true
@@ -48,7 +50,3 @@ wikiauthbot-server = { path = "wikiauthbot-server" }
 version = "0.12.0"
 default-features = false
 features = ["client", "model", "cache", "rustls_backend"]
-
-[[bin]]
-name = "jsonloader"
-path = "src/jsonloader.rs"

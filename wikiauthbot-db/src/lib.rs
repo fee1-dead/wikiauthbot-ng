@@ -1,43 +1,22 @@
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DbBackend, DbErr, EntityTrait,
-    QueryFilter, Schema,
-};
-use wikiauthbot_db_entity::prelude::{Accounts, Auth, ServerSettings};
-use wikiauthbot_db_entity::{accounts, auth, server_settings};
-
-pub struct Database {}
-
-impl Database {
-    pub async fn connect() -> Result<DatabaseConnection, DbErr> {
-        Ok(DatabaseConnection {
-            inner: sea_orm::Database::connect(
-                dotenvy::var("DATABASE_URL").expect("expected DATABASE_URL to be set"),
-            )
-            .await?,
-        })
-    }
-
-    pub async fn test_connect() -> Result<DatabaseConnection, DbErr> {
-        let db = sea_orm::Database::connect("sqlite::memory:").await?;
-        let schema = Schema::new(DbBackend::Sqlite);
-        let stmts = [
-            schema.create_table_from_entity(Accounts),
-            schema.create_table_from_entity(Auth),
-            schema.create_table_from_entity(ServerSettings),
-        ];
-        for stmt in stmts {
-            db.execute(db.get_database_backend().build(&stmt)).await?;
-        }
-
-        let conn = DatabaseConnection { inner: db };
-
-        Ok(conn)
-    }
-}
+use fred::prelude::*;
 
 #[derive(Clone)]
 pub struct DatabaseConnection {
-    inner: sea_orm::DatabaseConnection,
+    inner: RedisClient,
+}
+
+impl DatabaseConnection {
+    pub async fn prod() -> RedisResult<Self> {
+        todo!()
+    }
+
+    pub async fn dev() -> RedisResult<Self> {
+        let client = RedisClient::default();
+        client.init().await?;
+        Ok(Self {
+            inner: client,
+        })
+    }
 }
 
 pub struct WhoisResult {
@@ -55,64 +34,59 @@ pub struct ServerSettingsData {
 }
 
 impl DatabaseConnection {
-    pub async fn find_user(&self, discord_id: u64) -> Result<Option<auth::Model>, DbErr> {
-        Auth::find_by_id(discord_id).one(&self.inner).await
+    pub async fn user_is_authed(&self, discord_id: u64) -> RedisResult<bool> {
+        self.inner.exists(format!("auth:{discord_id}")).await
     }
 
-    pub async fn add_auth_user(&self, discord_id: u64, wikimedia_id: u32) -> Result<(), DbErr> {
-        wikiauthbot_db_entity::auth::ActiveModel {
-            discord_id: ActiveValue::Set(discord_id),
-            wikimedia_id: ActiveValue::Set(wikimedia_id),
-        }
-        .insert(&self.inner)
-        .await?;
-        Ok(())
+    pub async fn get_wikimedia_id(&self, discord_id: u64) -> RedisResult<Option<u32>> {
+        self.inner.get(format!("auth:{discord_id}")).await
     }
 
-    pub async fn add_user_authenticated_in_server(
+    pub async fn is_user_authed_in_server(
         &self,
         discord_id: u64,
         guild_id: u64,
-    ) -> Result<(), DbErr> {
-        wikiauthbot_db_entity::accounts::ActiveModel {
-            discord_id: ActiveValue::Set(discord_id),
-            server_id: ActiveValue::Set(guild_id),
-        }
-        .insert(&self.inner)
-        .await?;
-        Ok(())
+    ) -> RedisResult<bool> {
+        self.inner.sismember(format!("guilds:{guild_id}:authed"), discord_id).await
     }
 
-    pub async fn is_user_authenticated_in_server(
+    pub async fn full_auth(&self, discord_id: u64, wikimedia_id: u32, guild_id: u64) -> RedisResult<()> {
+        let txn = self.inner.multi();
+        txn.set(format!("auth:{discord_id}"), wikimedia_id, None, Some(SetOptions::NX), false).await?;
+        txn.sadd(format!("guilds:{guild_id}:authed"), discord_id).await?;
+        txn.exec(true).await
+    }
+
+    /// Partially, used when we know what the user is authenticated already.
+    pub async fn partial_auth(
         &self,
         discord_id: u64,
         guild_id: u64,
-    ) -> Result<bool, DbErr> {
-        Accounts::find_by_id((discord_id, guild_id))
-            .one(&self.inner)
-            .await
-            .map(|x| x.is_some())
+    ) -> RedisResult<()> {
+        self.inner.sadd(format!("guilds:{guild_id}:authed"), discord_id).await
     }
 
     pub async fn whois(
         &self,
         discord_id: u64,
-        discord_server_id: u64,
-    ) -> Result<Option<WhoisResult>, DbErr> {
-        let res = Auth::find_by_id(discord_id)
-            .inner_join(Accounts)
-            .filter(accounts::Column::ServerId.eq(discord_server_id))
-            .one(&self.inner)
-            .await?;
-        Ok(res.map(
-            |auth::Model {
-                 discord_id: _,
-                 wikimedia_id,
-             }| WhoisResult { wikimedia_id },
-        ))
+        guild_id: u64,
+    ) -> RedisResult<Option<WhoisResult>> {
+        if !self.is_user_authed_in_server(discord_id, guild_id).await? {
+            Ok(None)
+        } else {
+            self.get_wikimedia_id(discord_id).await.map(|user| user.map(|wikimedia_id| WhoisResult { wikimedia_id }))
+        }
     }
 
-    pub async fn get_all_server_settings(
+    pub async fn auth_log_channel_id(&self, guild_id: u64) -> RedisResult<u64> {
+        self.inner.get(format!("guilds:{guild_id}:auth_log_channel_id")).await
+    }
+
+    pub async fn authenticated_role_id(&self, guild_id: u64) -> RedisResult<u64> {
+        self.inner.get(format!("guilds:{guild_id}:authenticated_role_id")).await
+    }
+
+    /* pub async fn get_all_server_settings(
         &self,
     ) -> Result<impl Iterator<Item = (u64, ServerSettingsData)>, DbErr> {
         let models = ServerSettings::find().all(&self.inner).await?;
@@ -166,11 +140,15 @@ impl DatabaseConnection {
                 allow_banned_users,
             },
         ))
+    } */
+
+    pub async fn has_server_settings(&self, guild_id: u64) -> RedisResult<bool> {
+        self.inner.exists(format!("guilds:{guild_id}:server_language")).await
     }
 
     pub async fn set_server_settings(
         &self,
-        discord_server_id: u64,
+        guild_id: u64,
         ServerSettingsData {
             welcome_channel_id,
             auth_log_channel_id,
@@ -179,25 +157,15 @@ impl DatabaseConnection {
             server_language,
             allow_banned_users,
         }: ServerSettingsData,
-    ) -> Result<bool, DbErr> {
-        let model = ServerSettings::find_by_id(discord_server_id)
-            .one(&self.inner)
-            .await?;
-        if model.is_some() {
-            Ok(false)
-        } else {
-            server_settings::ActiveModel {
-                server_id: ActiveValue::Set(discord_server_id),
-                welcome_channel_id: ActiveValue::Set(welcome_channel_id),
-                auth_log_channel_id: ActiveValue::Set(auth_log_channel_id),
-                deauth_log_channel_id: ActiveValue::Set(deauth_log_channel_id),
-                authenticated_role_id: ActiveValue::Set(authenticated_role_id),
-                server_language: ActiveValue::Set(server_language),
-                allow_banned_users: ActiveValue::Set(allow_banned_users),
-            }
-            .insert(&self.inner)
-            .await?;
-            Ok(true)
-        }
+    ) -> RedisResult<()> {
+        let multi = self.inner.multi();
+        let key = |subkey| format!("guilds:{guild_id}:{subkey}");
+        multi.set(key("welcome_channel_id"), welcome_channel_id, None, None, false).await?;
+        multi.set(key("auth_log_channel_id"), auth_log_channel_id, None, None, false).await?;
+        multi.set(key("deauth_log_channel_id"), deauth_log_channel_id, None, None, false).await?;
+        multi.set(key("authenticated_role_id"), authenticated_role_id, None, None, false).await?;
+        multi.set(key("server_language"), server_language, None, None, false).await?;
+        multi.set(key("allow_banned_users"), allow_banned_users, None, None, false).await?;
+        multi.exec(true).await
     }
 }

@@ -8,5 +8,4 @@ edition.workspace = true
 
 [dependencies]
 dotenvy.workspace = true
-sea-orm.workspace = true
-wikiauthbot-db-entity = { path = "entity" }
+fred.workspace = true

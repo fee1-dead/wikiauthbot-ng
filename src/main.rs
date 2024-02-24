@@ -4,11 +4,12 @@ use std::sync::{Arc, Mutex};
 use dashmap::DashMap;
 use serenity::all::{Builder, CreateMessage, GatewayIntents, GuildId, Mention, RoleId, UserId};
 use serenity::client::{ClientBuilder, FullEvent};
+use tracing::error;
 use tokio::spawn;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tracing_subscriber::EnvFilter;
 use wikiauthbot_common::{AuthRequest, Config, SuccessfulAuth};
-use wikiauthbot_db::{Database, DatabaseConnection, ServerSettingsData};
+use wikiauthbot_db::{DatabaseConnection, ServerSettingsData};
 
 mod commands;
 mod logging;
@@ -17,7 +18,6 @@ pub struct Data {
     // todo: we might want to support multiple CentralAuth instances
     client: mwapi::Client,
     db: DatabaseConnection,
-    server_settings: Arc<DashMap<GuildId, ServerSettingsData>>,
     ongoing_auth_requests: Arc<DashMap<UserId, String>>,
     new_auth_reqs_send: Sender<AuthRequest>,
     config: &'static Config,
@@ -49,10 +49,10 @@ async fn event_handler(
         FullEvent::Ready { .. } => {
             println!("discord bot is ready");
             let receiver = u.successful_auths_recv.lock().unwrap().take();
+            // TODO change this to use redis's list
             if let Some(mut successful_auths_recv) = receiver {
                 let ongoing_auth_requests = u.ongoing_auth_requests.clone();
                 let db = u.db.clone();
-                let ss = u.server_settings.clone();
                 let http = ctx.http.clone();
                 spawn(async move {
                     while let Some(successful_auth) = successful_auths_recv.recv().await {
@@ -61,40 +61,29 @@ async fn event_handler(
                         let discord_user_id: UserId = NonZeroU64::into(successful_auth.discord_user_id);
                         let guild: GuildId = NonZeroU64::into(successful_auth.guild_id);
 
-                        if successful_auth.brand_new {
-                            if let Err(e) = db
-                                .add_auth_user(discord_user_id.get(), wmf_id)
-                                .await
-                            {
-                                eprintln!(
-                                    "Failed to insert successful authentication for {username}! {e}"
-                                );
-                                // TODO provide more context
-                                continue;
-                            }
+                        if let Err(e) = db.full_auth(discord_user_id.get(), wmf_id, guild.get()).await {
+                            tracing::error!(%e, "failed to insert authenticated!");
+                            continue;
                         }
-
-                        if let Err(e) = db.add_user_authenticated_in_server(discord_user_id.get(), guild.get()).await {
-                            tracing::error!(%e, "failed to insert server authenticated!");
-                        }
-
 
                         ongoing_auth_requests.remove(&discord_user_id);
-                        // don't want to hold the `DashMap` ref across an await or something.. Clone!
-                        let settings = {
-                            let Some(settings) = ss.get(&guild) else {
-                                eprintln!("failed to get guild settings");
-                                continue;
-                            };
-                            settings.clone()
+
+                        let Ok(authenticated_role_id) = db.authenticated_role_id(guild.get()).await else {
+                            tracing::error!("failed to get information for server: auth role channel");
+                            continue;
                         };
 
-                        if settings.authenticated_role_id != 0 {
+                        let Ok(auth_log_channel_id) = db.auth_log_channel_id(guild.get()).await else {
+                            tracing::error!("failed to get information for server: auth log channel");
+                            continue;
+                        };
+
+                        if authenticated_role_id != 0 {
                             if let Err(e) = http
                                 .add_member_role(
                                     guild,
                                     discord_user_id,
-                                    RoleId::from(settings.authenticated_role_id),
+                                    RoleId::from(authenticated_role_id),
                                     Some(&format!("authenticated as wikimedia user {wmf_id}")),
                                 )
                                 .await
@@ -103,16 +92,15 @@ async fn event_handler(
                             }
                         }
 
-                        let ch = settings.auth_log_channel_id;
-                        if ch != 0 {
+                        if auth_log_channel_id != 0 {
                             let mention = Mention::User(discord_user_id);
                             if let Err(e) = CreateMessage::new()
                                 .content(format!("{mention} authenticated as [[User:{username}]]"))
-                                .execute(&http, (ch.into(), Some(guild)))
+                                .execute(&http, (auth_log_channel_id.into(), Some(guild)))
                                 .await
                             {
-                                eprintln!(
-                                    "failed to send message to channel {ch} in guild {guild}: {e}"
+                                error!(
+                                    "failed to send message to channel {auth_log_channel_id} in guild {guild}: {e}"
                                 );
                             }
                         }
@@ -134,8 +122,7 @@ async fn bot_start(
     let framework = poise::FrameworkBuilder::default()
         .setup(|_ctx, _ready, _framework| {
             Box::pin(async {
-                let db = Database::connect().await?;
-                let settings = db.get_all_server_settings().await?;
+                let db = DatabaseConnection::dev().await?;
                 let data = Data {
                     client: mwapi::Client::builder("https://meta.wikimedia.org/w/api.php")
                         .set_user_agent(concat!("wikiauthbot-ng/{}", env!("CARGO_PKG_VERSION")))
@@ -145,11 +132,6 @@ async fn bot_start(
                     db,
                     new_auth_reqs_send,
                     ongoing_auth_requests: Arc::default(),
-                    server_settings: Arc::new(
-                        settings
-                            .map(|(guild_id, data)| (GuildId::new(guild_id), data))
-                            .collect(),
-                    ),
                     successful_auths_send,
                     successful_auths_recv: Mutex::new(Some(successful_auths_recv)),
                 };
