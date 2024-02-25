@@ -10,7 +10,7 @@
     in
     {
       devShells.default = with pkgs; pkgs.mkShell {
-        buildInputs = [ gcc pkg-config sea-orm-cli ];
+        buildInputs = [ gcc pkg-config ];
       };
     });
 }
