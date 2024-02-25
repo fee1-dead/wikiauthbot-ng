@@ -4,8 +4,8 @@ use actix_web::dev::Server;
 use actix_web::http::StatusCode;
 use actix_web::{get, web, App, HttpResponseBuilder, HttpServer, Responder};
 use reqwest::{Client, ClientBuilder};
-use tokio::sync::mpsc::{Receiver, Sender};
-use wikiauthbot_common::{AuthRequest, AuthRequestsMap, Config, SuccessfulAuth};
+use wikiauthbot_common::Config;
+use wikiauthbot_db::DatabaseConnection;
 
 #[derive(serde::Deserialize)]
 struct AuthRequestQuery {
@@ -20,22 +20,24 @@ struct AuthRequestQuery {
 #[derive(serde::Deserialize)]
 struct AccessTokenResponse {
     access_token: Box<str>,
-    // TODO do we need more fields?
     // https://www.oauth.com/oauth2-servers/server-side-apps/example-flow/
 }
 
 #[derive(serde::Deserialize)]
 struct UserProfileResponse {
     sub: u32,
-    username: Box<str>,
+    username: String,
 }
 
 struct State {
-    in_progress: AuthRequestsMap,
+    db: DatabaseConnection,
     client: Client,
-    // when we are done verifying the auth request, return discord user id, global user id, and current username.
-    successful_auths: Arc<Sender<SuccessfulAuth>>,
     config: &'static Config,
+}
+
+#[get("/")]
+async fn index() -> &'static str {
+    "wikiauthbot-server is running!"
 }
 
 #[get("/authorize")]
@@ -54,7 +56,7 @@ async fn authorize(
         return HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body(format!("Error: {message}"));
     }
 
-    let Some(auth_req) = app_state.in_progress.get_auth_req(&state) else {
+    let Ok(Some(auth_req)) = app_state.db.get_auth_req(&state).await else {
         return HttpResponseBuilder::new(StatusCode::NOT_FOUND)
             .body("Auth request was expired or invalid");
     };
@@ -99,7 +101,7 @@ async fn authorize(
     };
 
     let success = auth_req.into_successful(sub, username);
-    let Ok(()) = app_state.successful_auths.send(success).await else {
+    let Ok(()) = app_state.db.send_successful_req(success).await else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
             .body("failed to deliver successful auth request :(");
     };
@@ -109,28 +111,17 @@ async fn authorize(
 }
 
 #[must_use]
-pub async fn start(
-    mut new_auth_reqs: Receiver<AuthRequest>,
-    // when we are done verifying the auth request, return discord user id, global user id, and current username.
-    successful_auths: Arc<Sender<SuccessfulAuth>>,
-) -> color_eyre::Result<Server> {
+pub async fn start(db: DatabaseConnection) -> color_eyre::Result<Server> {
     let state = Arc::new(State {
-        in_progress: AuthRequestsMap::new(),
+        db,
         client: ClientBuilder::new().build()?,
-        successful_auths,
-        // TODO pass this top down to avoid having a global
         config: Config::get()?,
-    });
-    let state2 = state.clone();
-    tokio::spawn(async move {
-        while let Some(auth) = new_auth_reqs.recv().await {
-            state2.in_progress.add_auth_req(auth);
-        }
     });
     let server = HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(state.clone()))
             .service(authorize)
+            .service(index)
     })
     .bind(("127.0.0.1", 8080))?
     .run();

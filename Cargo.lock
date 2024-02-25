@@ -3646,8 +3646,10 @@ dependencies = [
 name = "wikiauthbot-db"
 version = "0.1.0"
 dependencies = [
- "dotenvy",
+ "color-eyre",
  "fred",
+ "tracing",
+ "wikiauthbot-common",
 ]
 
 [[package]]
@@ -3685,6 +3687,7 @@ dependencies = [
  "serde",
  "tokio",
  "wikiauthbot-common",
+ "wikiauthbot-db",
 ]
 
 [[package]]

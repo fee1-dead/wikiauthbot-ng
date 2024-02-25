@@ -7,5 +7,7 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dotenvy.workspace = true
+color-eyre.workspace = true
 fred.workspace = true
+wikiauthbot-common = { path = "../wikiauthbot-common" }
+tracing.workspace = true
