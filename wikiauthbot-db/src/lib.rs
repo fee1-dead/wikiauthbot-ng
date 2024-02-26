@@ -48,7 +48,10 @@ pub struct ServerSettingsData {
 
 impl DatabaseConnection {
     // TODO we should abstract this
-    pub fn on_keyspace_event<F>(&self, func: F) where F: Fn(KeyspaceEvent) -> RedisResult<()> + Send + 'static {
+    pub fn on_keyspace_event<F>(&self, func: F)
+    where
+        F: Fn(KeyspaceEvent) -> RedisResult<()> + Send + 'static,
+    {
         self.client.on_keyspace_event(func);
     }
 
@@ -196,6 +199,7 @@ impl DatabaseConnection {
                 false,
             )
             .await?;
+        pipeline.all().await?;
         Ok(())
     }
 }

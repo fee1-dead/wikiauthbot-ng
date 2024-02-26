@@ -4,7 +4,7 @@ use color_eyre::eyre::bail;
 use poise::CreateReply;
 use serde_json::Value;
 use serenity::all::{
-    Builder, ButtonStyle, CreateActionRow, CreateButton, CreateInteractionResponse
+    Builder, ButtonStyle, CreateActionRow, CreateButton, CreateInteractionResponse,
 };
 use serenity::builder::{CreateEmbed, CreateEmbedFooter, EditInteractionResponse};
 use tokio::spawn;
@@ -17,10 +17,7 @@ use crate::{Context, Result};
 #[poise::command(slash_command, guild_only = true)]
 pub async fn auth(ctx: Context<'_>) -> Result {
     let crate::Data {
-        client,
-        config,
-        db,
-        ..
+        client, config, db, ..
     } = ctx.data();
     // use the reqwest client, or else
     ctx.defer_ephemeral().await?;
@@ -36,6 +33,12 @@ pub async fn auth(ctx: Context<'_>) -> Result {
         // TODO we might reassign roles as a recheck
         return Ok(());
     }
+
+    let cont_token = match ctx {
+        Context::Prefix(_) => unreachable!(),
+        Context::Application(appctx) => appctx.interaction.token.clone(),
+    };
+    db.record_auth_message(user_id.into(), &cont_token).await?;
 
     if let Some(wikimedia_id) = db.get_wikimedia_id(user_id.get()).await? {
         let mut val: Value = client
@@ -60,10 +63,6 @@ pub async fn auth(ctx: Context<'_>) -> Result {
                 ]
             )]);
         let msg = ctx.send(reply).await?.into_message().await?;
-        let cont_token = match ctx {
-            Context::Prefix(_) => unreachable!(),
-            Context::Application(appctx) => appctx.interaction.token.clone(),
-        };
         let ctx = ctx.serenity_context().clone();
         let rxns = msg.await_component_interaction(&ctx);
         let db2 = db.clone();
@@ -131,13 +130,10 @@ pub async fn auth(ctx: Context<'_>) -> Result {
     // https://www.mediawiki.org/wiki/OAuth/For_Developers
     let client_id = &*config.oauth_consumer_key;
     let url = format!("https://meta.wikimedia.org/w/rest.php/oauth2/authorize?response_type=code&client_id={client_id}&state={state}");
+
     ctx.send(CreateReply::default().embed(CreateEmbed::new().color(0xCCCCCC).title("WikiAuthBot").description(format!(
         "Please use the following link to authenticate to your Wikimedia account: [Authenticate]({url})"
     )).thumbnail("https://cdn.discordapp.com/emojis/546848856650809344.png").footer(CreateEmbedFooter::new("This link will be valid for 10 minutes.")))).await?;
-    let cont_token = match ctx {
-        Context::Prefix(_) => unreachable!(),
-        Context::Application(appctx) => appctx.interaction.token.clone(),
-    };
-    db.record_auth_message(user_id.into(), &cont_token).await?;
+
     Ok(())
 }

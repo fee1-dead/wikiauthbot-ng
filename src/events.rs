@@ -1,6 +1,8 @@
 use std::num::NonZeroU64;
 
-use serenity::all::{Builder, CreateMessage, EditInteractionResponse, GuildId, Mention, RoleId, UserId};
+use serenity::all::{
+    Builder, CreateMessage, EditInteractionResponse, GuildId, Mention, RoleId, UserId,
+};
 use tokio::spawn;
 use tracing::error;
 
@@ -14,7 +16,7 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
 
     parent_db.on_keyspace_event(move |event| {
         let key = event.key.as_str_lossy();
-        if let Some(token) = key.strip_prefix("auth_message:") {
+        if let Some(token) = key.strip_prefix("auth_message:expiry:") {
             let edit = EditInteractionResponse::new()
                 .content("Authentication request expired.")
                 .embeds(vec![]);
@@ -33,8 +35,8 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
             let successful_auth = match db.recv_successful_req().await {
                 Ok(x) => x,
                 Err(e) => {
-                    tracing::error!(%e, "couldn't receive successful request");
-                    break;
+                    tracing::error!(?e, "couldn't receive successful request");
+                    continue;
                 }
             };
 
@@ -51,11 +53,23 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                 continue;
             }
 
-            let Ok(()) = parent_db.record_auth_message_successful(discord_user_id.into()).await else {
+            let Ok(cont_token) = parent_db
+                .record_auth_message_successful(discord_user_id.into())
+                .await
+            else {
                 tracing::error!("failed record message as successful");
                 // todo we should include e in them
                 continue;
             };
+
+            let newmsg = EditInteractionResponse::new()
+                .content("Authentication successful.")
+                .embeds(vec![])
+                .components(vec![]);
+            if let Err(e) = newmsg.execute(&http, &cont_token).await {
+                tracing::error!(%e, "couldn't edit");
+                continue;
+            }
 
             let Ok(authenticated_role_id) = parent_db.authenticated_role_id(guild.get()).await
             else {

@@ -9,7 +9,7 @@ use crate::{ChildDatabaseConnection, DatabaseConnection};
 
 impl ChildDatabaseConnection {
     pub async fn recv_successful_req(&self) -> color_eyre::Result<SuccessfulAuth> {
-        let key: String = self.client.blpop("successful_auths", 0.0).await?;
+        let (_, key): (String, String) = self.client.blpop("successful_auths", 0.0).await?;
         let (discord_user_id, guild_id, central_user_id, username, brand_new) = self
             .client
             .hmget(
@@ -45,19 +45,38 @@ impl DatabaseConnection {
         .transpose()
     }
 
-    pub async fn record_auth_message(&self, discord_user_id: NonZeroU64, cont_token: &str) -> color_eyre::Result<()> {
+    pub async fn record_auth_message(
+        &self,
+        discord_user_id: NonZeroU64,
+        cont_token: &str,
+    ) -> color_eyre::Result<()> {
         let expiring_key = format!("auth_message:expiry:{cont_token}");
         let client = self.client.pipeline();
-        client.set(format!("auth_message:{discord_user_id}"), &expiring_key, Some(Expiration::EX(6*60)), None, false).await?;
-        client.set(expiring_key, "", Some(Expiration::EX(5*60)), None, false).await?;
+        client
+            .set(
+                format!("auth_message:{discord_user_id}"),
+                &expiring_key,
+                Some(Expiration::EX(6 * 60)),
+                None,
+                false,
+            )
+            .await?;
+        client
+            .set(expiring_key, "", Some(Expiration::EX(5 * 60)), None, false)
+            .await?;
+        client.all().await?;
         Ok(())
     }
 
-    pub async fn record_auth_message_successful(&self, discord_user_id: NonZeroU64) -> color_eyre::Result<()> {
+    pub async fn record_auth_message_successful(
+        &self,
+        discord_user_id: NonZeroU64,
+    ) -> color_eyre::Result<String> {
         let key = format!("auth_message:{discord_user_id}");
-        let expiring_key: String = self.client.get(&key).await?;
-        self.client.del(&[key, expiring_key]).await?;
-        Ok(())
+        let mut expiring_key: String = self.client.get(&key).await?;
+        self.client.del(&[&key, &expiring_key]).await?;
+        let cont_token = expiring_key.split_off("auth_message:expiry:".len());
+        Ok(cont_token)
     }
 
     pub async fn record_auth_req(

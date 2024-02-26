@@ -1,6 +1,4 @@
-use serenity::all::{
-    Builder, CreateMessage, GatewayIntents, Mentionable, UserId,
-};
+use serenity::all::{Builder, CreateMessage, GatewayIntents, Mentionable, UserId};
 use serenity::client::{ClientBuilder, FullEvent};
 use tracing::trace;
 use tracing_subscriber::EnvFilter;

@@ -178,30 +178,6 @@ impl WhoisInfo {
     }
 }
 
-#[poise::command(slash_command, guild_only = true)]
-pub async fn whois_test(ctx: Context<'_>, name: String) -> Result {
-    let crate::Data { client, .. } = ctx.data();
-    ctx.defer().await?;
-
-    let v = client
-        .get_value(&[
-            ("action", "query"),
-            ("meta", "globaluserinfo"),
-            ("guiprop", "groups|merged|unattached"),
-            ("guiuser", &name),
-        ])
-        .await
-        .wrap_err("querying API")?["query"]["globaluserinfo"]
-        .take();
-
-    let whois: WhoisInfo = serde_json::from_value(v)?;
-
-    ctx.send(CreateReply::default().embed(whois.create_embed(ctx.author().id)?))
-        .await?;
-
-    Ok(())
-}
-
 #[poise::command(slash_command, ephemeral, guild_only = true)]
 /// Check account details for an authenticated member
 pub async fn whois(
@@ -211,7 +187,8 @@ pub async fn whois(
     let crate::Data { client, db, .. } = ctx.data();
     ctx.defer_ephemeral().await?;
 
-    let user = user.unwrap_or_else(|| ctx.author().id).get();
+    let user_id = user.unwrap_or_else(|| ctx.author().id);
+    let user = user_id.get();
 
     let whois = db
         .whois(user, ctx.guild_id().ok_or_eyre("must be in guild")?.get())
@@ -239,7 +216,7 @@ pub async fn whois(
     ctx.send(
         CreateReply::default()
             .ephemeral(true)
-            .embed(whois.create_embed(ctx.author().id)?),
+            .embed(whois.create_embed(user_id)?),
     )
     .await?;
 
