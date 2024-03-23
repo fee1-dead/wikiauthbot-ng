@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::sync::Arc;
 
 use serde_json::Value;
 use wikiauthbot_db::DatabaseConnection;
