@@ -200,6 +200,7 @@ pub fn all_commands() -> Vec<Command> {
         whois::whois(),
         migrate_server(),
         revwhois::revwhois(),
+        cleanup_roles(),
         // whois::whois_test(),
     ]
 }
