@@ -80,7 +80,7 @@ async fn bot_start() -> Result<()> {
                 .map(UserId::from)
                 .collect(),
             prefix_options: poise::PrefixFrameworkOptions {
-                prefix: Some("~".into()),
+                prefix: Some("wab!".into()),
                 ..Default::default()
             },
             event_handler: |ctx, event, framework, data| {

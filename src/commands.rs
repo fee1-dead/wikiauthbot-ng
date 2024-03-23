@@ -11,13 +11,17 @@ mod revwhois;
 mod whois;
 
 #[poise::command(prefix_command)]
-pub async fn register(ctx: Context<'_>) -> Result {
+pub async fn register(ctx: Context<'_>, guild: Option<GuildId>) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
     if !is_bot_owner {
         // silent fail
         return Ok(());
     }
-    poise::builtins::register_application_commands_buttons(ctx).await?;
+    if let Some(guild) = guild {
+        guild.set_commands(ctx, poise::samples::create_application_commands(&ctx.framework().options().commands)).await?;
+    } else {
+        poise::builtins::register_application_commands_buttons(ctx).await?;
+    }
     Ok(())
 }
 
