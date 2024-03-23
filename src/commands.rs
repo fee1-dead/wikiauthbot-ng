@@ -7,6 +7,7 @@ use wikiauthbot_db::ServerSettingsData;
 use crate::{Command, Context, Result};
 
 mod auth;
+mod revwhois;
 mod whois;
 
 #[poise::command(prefix_command)]
@@ -194,6 +195,7 @@ pub fn all_commands() -> Vec<Command> {
         auth::auth(),
         whois::whois(),
         migrate_server(),
+        revwhois::revwhois(),
         // whois::whois_test(),
     ]
 }

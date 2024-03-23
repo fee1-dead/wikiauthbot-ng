@@ -8,6 +8,7 @@ edition.workspace = true
 
 [dependencies]
 color-eyre.workspace = true
+futures.workspace = true
 fred.workspace = true
 wikiauthbot-common = { path = "../wikiauthbot-common" }
 tracing.workspace = true

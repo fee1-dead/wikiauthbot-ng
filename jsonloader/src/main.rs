@@ -19,7 +19,7 @@ pub struct AuthUser {
     pub wnam: String,
 }
 
-async fn main_inner() -> color_eyre::Result<()> {
+pub async fn load_from_json() -> color_eyre::Result<()> {
     let auth: AuthJson = serde_json::from_reader(File::open("/home/beef/Downloads/auth3.json")?)?;
     let auth = auth
         ._default
@@ -101,6 +101,12 @@ async fn main_inner() -> color_eyre::Result<()> {
     b?;
     c?;
 
+    Ok(())
+}
+
+async fn main_inner() -> color_eyre::Result<()> {
+    let redis = DatabaseConnection::prod_tunnelled().await?;
+    redis.build_revauth().await?;
     Ok(())
 }
 

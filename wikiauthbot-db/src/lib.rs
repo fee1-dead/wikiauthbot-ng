@@ -1,7 +1,8 @@
 use std::num::NonZeroU64;
 
 use fred::prelude::*;
-use fred::types::KeyspaceEvent;
+use fred::types::{KeyspaceEvent, Scanner as _};
+use futures::TryStreamExt as _;
 use wikiauthbot_common::Config;
 
 pub mod server;
@@ -76,6 +77,12 @@ impl DatabaseConnection {
         self.client.get(format!("auth:{discord_id}")).await
     }
 
+    pub async fn get_discord_ids(&self, wikimedia_id: u32) -> RedisResult<Vec<u64>> {
+        self.client
+            .lrange(format!("revauth:{wikimedia_id}"), 0, -1)
+            .await
+    }
+
     pub async fn is_user_authed_in_server(
         &self,
         discord_id: u64,
@@ -101,21 +108,26 @@ impl DatabaseConnection {
             false,
         )
         .await?;
+        txn.lpush(format!("revauth:{wikimedia_id}"), discord_id)
+            .await?;
         txn.sadd(format!("guilds:{guild_id}:authed"), discord_id)
             .await?;
         txn.exec(true).await
     }
 
     pub async fn wmf_auth(&self, discord_id: u64, wikimedia_id: u32) -> RedisResult<()> {
-        self.client
-            .set(
-                format!("auth:{discord_id}"),
-                wikimedia_id,
-                None,
-                Some(SetOptions::NX),
-                false,
-            )
-            .await
+        let txn = self.client.multi();
+        txn.lpush(format!("revauth:{wikimedia_id}"), discord_id)
+            .await?;
+        txn.set(
+            format!("auth:{discord_id}"),
+            wikimedia_id,
+            None,
+            Some(SetOptions::NX),
+            false,
+        )
+        .await?;
+        txn.exec(true).await
     }
 
     /// Partially, used when we know what the user is authenticated already.
@@ -133,6 +145,17 @@ impl DatabaseConnection {
                 .await
                 .map(|user| user.map(|wikimedia_id| WhoisResult { wikimedia_id }))
         }
+    }
+
+    pub async fn revwhois(&self, wikimedia_id: u32, guild_id: u64) -> RedisResult<Vec<u64>> {
+        let discord_ids = self.get_discord_ids(wikimedia_id).await?;
+        let mut filtered = Vec::new();
+        for identity in discord_ids {
+            if self.is_user_authed_in_server(identity, guild_id).await? {
+                filtered.push(identity);
+            }
+        }
+        Ok(filtered)
     }
 
     pub async fn welcome_channel_id(&self, guild_id: u64) -> RedisResult<Option<NonZeroU64>> {
@@ -226,5 +249,31 @@ impl DatabaseConnection {
             .await?;
         pipeline.all().await?;
         Ok(())
+    }
+
+    pub async fn build_revauth(&self) -> RedisResult<()> {
+        self.client
+            .scan("auth:*", Some(100), None)
+            .try_for_each_concurrent(None, |mut result| async move {
+                let client = result.create_client();
+                let results = result.take_results().unwrap();
+                let wikimedia_ids: Vec<u32> = client.mget(results.clone()).await?;
+                let pipeline = client.pipeline();
+                for (key, wikimedia_id) in results.into_iter().zip(wikimedia_ids) {
+                    let discord_id = key
+                        .as_str_lossy()
+                        .strip_prefix("auth:")
+                        .unwrap()
+                        .parse::<u64>()
+                        .unwrap();
+                    pipeline
+                        .lpush(format!("revauth:{wikimedia_id}"), discord_id)
+                        .await?;
+                }
+                pipeline.all().await?;
+                result.next()?;
+                Ok(())
+            })
+            .await
     }
 }
