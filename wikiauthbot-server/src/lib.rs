@@ -123,7 +123,7 @@ pub async fn start(db: DatabaseConnection) -> color_eyre::Result<Server> {
             .service(authorize)
             .service(index)
     })
-    .bind(("127.0.0.1", 8000))?
+    .bind(("0.0.0.0", 8000))?
     .run();
     Ok(server)
 }
