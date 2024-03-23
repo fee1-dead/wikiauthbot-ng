@@ -1,5 +1,5 @@
 [package]
-name = "wikiauthbot-common"
+name = "jsonloader"
 version.workspace = true
 rust-version.workspace = true
 edition.workspace = true
@@ -8,8 +8,10 @@ edition.workspace = true
 
 [dependencies]
 color-eyre.workspace = true
-tokio.workspace = true
-rand = "0.8.5"
-serde.workspace = true
-toml = { version = "0.8.8", default-features = false, features = ["parse"] }
+dotenvy.workspace = true
 mwapi.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+wikiauthbot-db = { path = "../wikiauthbot-db" }
+wikiauthbot-common = { path = "../wikiauthbot-common" }

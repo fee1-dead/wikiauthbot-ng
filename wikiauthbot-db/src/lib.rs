@@ -2,6 +2,7 @@ use std::num::NonZeroU64;
 
 use fred::prelude::*;
 use fred::types::KeyspaceEvent;
+use wikiauthbot_common::Config;
 
 pub mod server;
 
@@ -17,6 +18,14 @@ pub struct ChildDatabaseConnection {
 impl DatabaseConnection {
     pub async fn prod() -> RedisResult<Self> {
         todo!()
+    }
+
+    pub async fn prod_tunnelled() -> color_eyre::Result<Self> {
+        let password = &Config::get()?.redis_password;
+        let url = format!("redis://:{password}@127.0.0.1:16379");
+        let client = Builder::from_config(RedisConfig::from_url(&url)?).build()?;
+        client.init().await?;
+        Ok(Self { client })
     }
 
     pub async fn dev() -> RedisResult<Self> {
@@ -91,6 +100,18 @@ impl DatabaseConnection {
         txn.sadd(format!("guilds:{guild_id}:authed"), discord_id)
             .await?;
         txn.exec(true).await
+    }
+
+    pub async fn wmf_auth(&self, discord_id: u64, wikimedia_id: u32) -> RedisResult<()> {
+        self.client
+            .set(
+                format!("auth:{discord_id}"),
+                wikimedia_id,
+                None,
+                Some(SetOptions::NX),
+                false,
+            )
+            .await
     }
 
     /// Partially, used when we know what the user is authenticated already.

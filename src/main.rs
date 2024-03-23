@@ -61,12 +61,10 @@ async fn bot_start() -> Result<()> {
     let framework = poise::FrameworkBuilder::default()
         .setup(|_ctx, _ready, _framework| {
             Box::pin(async {
-                let db = DatabaseConnection::dev().await?;
+                // todo
+                let db = DatabaseConnection::prod_tunnelled().await?;
                 let data = Data {
-                    client: mwapi::Client::builder("https://meta.wikimedia.org/w/api.php")
-                        .set_user_agent(concat!("wikiauthbot-ng/{}", env!("CARGO_PKG_VERSION")))
-                        .build()
-                        .await?,
+                    client: wikiauthbot_common::mwclient().await?,
                     config,
                     db,
                 };
