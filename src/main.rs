@@ -61,8 +61,7 @@ async fn bot_start() -> Result<()> {
     let framework = poise::FrameworkBuilder::default()
         .setup(|_ctx, _ready, _framework| {
             Box::pin(async {
-                // todo
-                let db = DatabaseConnection::prod_tunnelled().await?;
+                let db = DatabaseConnection::prod().await?;
                 let data = Data {
                     client: wikiauthbot_common::mwclient().await?,
                     config,

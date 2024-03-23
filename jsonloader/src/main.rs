@@ -29,7 +29,7 @@ async fn main_inner() -> color_eyre::Result<()> {
         .collect::<Vec<_>>();
     let (send_1, mut recv_1) = tokio::sync::mpsc::channel::<AuthUser>(10);
     let (send_2, mut recv_2) = tokio::sync::mpsc::channel::<(u64, u32)>(10);
-    let db = Arc::new(DatabaseConnection::prod_tunnelled().await.unwrap());
+    let db = DatabaseConnection::prod().await.unwrap();
     let db2 = db.clone();
     db.get_wikimedia_id(468253584421552139).await.unwrap();
 

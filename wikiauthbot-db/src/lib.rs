@@ -16,8 +16,12 @@ pub struct ChildDatabaseConnection {
 }
 
 impl DatabaseConnection {
-    pub async fn prod() -> RedisResult<Self> {
-        todo!()
+    pub async fn prod() -> color_eyre::Result<Self> {
+        let password = &Config::get()?.redis_password;
+        let url = format!("redis://:{password}@redis.discordbots.eqiad1.wikimedia.cloud:6379");
+        let client = Builder::from_config(RedisConfig::from_url(&url)?).build()?;
+        client.init().await?;
+        Ok(Self { client })
     }
 
     pub async fn prod_tunnelled() -> color_eyre::Result<Self> {
