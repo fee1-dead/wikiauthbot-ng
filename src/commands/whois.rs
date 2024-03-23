@@ -9,6 +9,11 @@ use wikiauthbot_db::WhoisResult;
 
 use crate::{Context, Result};
 
+pub fn user_link(user_name: &str, lang: &str) -> String {
+    let normalized_name = user_name.replace(' ', "+");
+    format!("https://{lang}.wikipedia.org/w/index.php?title=Special%3ACentralAuth/{normalized_name}")
+}
+
 pub struct MedalInfo {
     days: u64,
     edits: u64,
@@ -75,7 +80,7 @@ pub struct WhoisInfo {
 }
 
 impl WhoisInfo {
-    pub fn create_embed(mut self, discord_user_id: UserId) -> Result<CreateEmbed> {
+    pub fn create_embed(mut self, discord_user_id: UserId, lang: &str) -> Result<CreateEmbed> {
         let mut mb = MessageBuilder::new();
         mb.push("Discord: ")
             .mention(&discord_user_id)
@@ -159,10 +164,12 @@ impl WhoisInfo {
 
         let mut fields = fields.into_iter();
 
+        let url = user_link(&self.name, lang);
         let mut embed = CreateEmbed::new()
             .colour(0xCCCCCC)
             .title(self.name)
             .description(mb.0)
+            .url(url)
             .thumbnail(format!(
                 "https://upload.wikimedia.org/wikipedia/commons/{medal}"
             ))
@@ -189,9 +196,9 @@ pub async fn whois(
 
     let user_id = user.unwrap_or_else(|| ctx.author().id);
     let user = user_id.get();
-
+    let guild_id = ctx.guild_id().ok_or_eyre("must be in guild")?.get();
     let whois = db
-        .whois(user, ctx.guild_id().ok_or_eyre("must be in guild")?.get())
+        .whois(user, guild_id)
         .await?;
 
     let Some(WhoisResult { wikimedia_id }) = whois else {
@@ -199,6 +206,9 @@ pub async fn whois(
             .await?;
         return Ok(());
     };
+
+    let lang = db.server_language(guild_id).await;
+    let lang = lang.as_deref().unwrap_or("en");
 
     let v = client
         .get_value(&[
@@ -216,7 +226,7 @@ pub async fn whois(
     ctx.send(
         CreateReply::default()
             .ephemeral(true)
-            .embed(whois.create_embed(user_id)?),
+            .embed(whois.create_embed(user_id, lang)?),
     )
     .await?;
 

@@ -179,6 +179,12 @@ impl DatabaseConnection {
             .await
     }
 
+    pub async fn server_language(&self, guild_id: u64) -> RedisResult<String> {
+        self.client
+            .get(format!("guilds:{guild_id}:server_language"))
+            .await
+    }
+
     pub async fn has_server_settings(&self, guild_id: u64) -> RedisResult<bool> {
         self.client
             .exists(format!("guilds:{guild_id}:server_language"))
