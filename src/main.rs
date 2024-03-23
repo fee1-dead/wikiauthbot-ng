@@ -42,7 +42,7 @@ async fn event_handler(
                 let mention = new_member.mention();
                 // TODO link the application command through something like "</auth:1025443470388764714>"
                 CreateMessage::new()
-                    .content(format!("Welcome {mention}! If you would like to authenticate (validate) your Wikimedia account, please type /auth"))
+                    .content(format!("Welcome {mention}! If you would like to authenticate (validate) your Wikimedia account, please type </auth:1221128504410898571>"))
                     .reactions(['👋'])
                     .execute(ctx, (chan.into(), Some(guild))).await?;
             }
