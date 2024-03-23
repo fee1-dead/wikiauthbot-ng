@@ -79,7 +79,7 @@ impl DatabaseConnection {
 
     pub async fn get_discord_ids(&self, wikimedia_id: u32) -> RedisResult<Vec<u64>> {
         self.client
-            .lrange(format!("revauth:{wikimedia_id}"), 0, -1)
+            .smembers(format!("revauth2:{wikimedia_id}"))
             .await
     }
 
@@ -108,7 +108,7 @@ impl DatabaseConnection {
             false,
         )
         .await?;
-        txn.lpush(format!("revauth:{wikimedia_id}"), discord_id)
+        txn.sadd(format!("revauth2:{wikimedia_id}"), discord_id)
             .await?;
         txn.sadd(format!("guilds:{guild_id}:authed"), discord_id)
             .await?;
@@ -117,7 +117,7 @@ impl DatabaseConnection {
 
     pub async fn wmf_auth(&self, discord_id: u64, wikimedia_id: u32) -> RedisResult<()> {
         let txn = self.client.multi();
-        txn.lpush(format!("revauth:{wikimedia_id}"), discord_id)
+        txn.sadd(format!("revauth2:{wikimedia_id}"), discord_id)
             .await?;
         txn.set(
             format!("auth:{discord_id}"),
@@ -267,7 +267,7 @@ impl DatabaseConnection {
                         .parse::<u64>()
                         .unwrap();
                     pipeline
-                        .lpush(format!("revauth:{wikimedia_id}"), discord_id)
+                        .sadd(format!("revauth2:{wikimedia_id}"), discord_id)
                         .await?;
                 }
                 pipeline.all().await?;
