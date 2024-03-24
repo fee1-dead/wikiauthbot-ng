@@ -13,7 +13,7 @@ use wikiauthbot_common::{AuthRequest, SuccessfulAuth};
 
 use crate::{Context, Result};
 
-// TODO error handling that doesn't crash the bot
+/// Authenticate to your Wikimedia account
 #[poise::command(slash_command, guild_only = true)]
 pub async fn auth(ctx: Context<'_>) -> Result {
     let crate::Data {
