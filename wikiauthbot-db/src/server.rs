@@ -5,12 +5,12 @@ use color_eyre::eyre::ContextCompat;
 use fred::prelude::*;
 use wikiauthbot_common::{AuthRequest, SuccessfulAuth};
 
-use crate::{ChildDatabaseConnection, DatabaseConnection};
+use crate::{try_redis, ChildDatabaseConnection, DatabaseConnection};
 
 impl ChildDatabaseConnection {
     pub async fn recv_successful_req(&self) -> color_eyre::Result<SuccessfulAuth> {
-        let (_, key): (String, String) = self.client.blpop("successful_auths", 0.0).await?;
-        let (discord_user_id, guild_id, central_user_id, username, brand_new) = self
+        let (_, key): (String, String) = try_redis(self.client.blpop("successful_auths", 0.0).await)?;
+        let (discord_user_id, guild_id, central_user_id, username, brand_new) = try_redis(self
             .client
             .hmget(
                 key,
@@ -22,7 +22,7 @@ impl ChildDatabaseConnection {
                     "brand_new",
                 ],
             )
-            .await?;
+            .await)?;
         Ok(SuccessfulAuth {
             discord_user_id: NonZeroU64::new(discord_user_id).context("null discord_user_id")?,
             guild_id: NonZeroU64::new(guild_id).context("null guild_id")?,
@@ -36,9 +36,9 @@ impl ChildDatabaseConnection {
 impl DatabaseConnection {
     pub async fn get_auth_req(&self, state: &str) -> color_eyre::Result<Option<AuthRequest>> {
         let txn = self.client.multi();
-        txn.get(format!("auth_req:{state}:discord_user_id")).await?;
-        txn.get(format!("auth_req:{state}:guild_id")).await?;
-        let o: Option<(u64, u64)> = txn.exec(true).await?;
+        try_redis(txn.get(format!("auth_req:{state}:discord_user_id")).await)?;
+        try_redis(txn.get(format!("auth_req:{state}:guild_id")).await)?;
+        let o: Option<(u64, u64)> = try_redis(txn.exec(true).await)?;
         o.map(|(discord_user_id, guild_id)| {
             AuthRequest::from_redis(state, discord_user_id, guild_id)
         })
@@ -52,7 +52,7 @@ impl DatabaseConnection {
     ) -> color_eyre::Result<()> {
         let expiring_key = format!("auth_message:expiry:{cont_token}");
         let client = self.client.pipeline();
-        client
+        try_redis(client
             .set(
                 format!("auth_message:{discord_user_id}"),
                 &expiring_key,
@@ -60,21 +60,21 @@ impl DatabaseConnection {
                 None,
                 false,
             )
-            .await?;
-        client
+            .await)?;
+        try_redis(client
             .set(expiring_key, "", Some(Expiration::EX(5 * 60)), None, false)
-            .await?;
-        client.all().await?;
+            .await)?;
+        try_redis(client.all().await)?;
         Ok(())
     }
 
     pub async fn record_auth_message_successful(
         &self,
         discord_user_id: NonZeroU64,
-    ) -> color_eyre::Result<String> {
+    ) -> RedisResult<String> {
         let key = format!("auth_message:{discord_user_id}");
-        let mut expiring_key: String = self.client.get(&key).await?;
-        self.client.del(&[&key, &expiring_key]).await?;
+        let mut expiring_key: String = try_redis(self.client.get(&key).await)?;
+        try_redis(self.client.del(&[&key, &expiring_key]).await)?;
         let cont_token = expiring_key.split_off("auth_message:expiry:".len());
         Ok(cont_token)
     }
@@ -86,23 +86,23 @@ impl DatabaseConnection {
         guild_id: NonZeroU64,
     ) -> RedisResult<()> {
         let txn = self.client.multi();
-        txn.set(
+        try_redis(txn.set(
             format!("auth_req:{state}:discord_user_id"),
             discord_user_id.get(),
             Some(Expiration::EX(60 * 10)),
             None,
             false,
         )
-        .await?;
-        txn.set(
+        .await)?;
+    try_redis(txn.set(
             format!("auth_req:{state}:guild_id"),
             guild_id.get(),
             Some(Expiration::EX(60 * 10)),
             None,
             false,
         )
-        .await?;
-        txn.exec(true).await
+        .await)?;
+    try_redis(txn.exec(true).await)
     }
 
     pub async fn send_successful_req(
@@ -114,11 +114,11 @@ impl DatabaseConnection {
             username,
             brand_new,
         }: SuccessfulAuth,
-    ) -> color_eyre::Result<()> {
+    ) -> RedisResult<()> {
         let txn = self.client.multi();
 
         let key = format!("successful_auth:{}", discord_user_id);
-        txn.hset(
+        try_redis(txn.hset(
             &key,
             [
                 ("discord_user_id", discord_user_id.get().try_into()?),
@@ -128,12 +128,12 @@ impl DatabaseConnection {
                 ("brand_new", RedisValue::Boolean(brand_new)),
             ],
         )
-        .await?;
+        .await)?;
         // make the hash expire after a minute.
-        txn.expire(&key, 60).await?;
-        txn.lpush("successful_auths", key).await?;
-        txn.expire("successful_auths", 180).await?;
-        txn.exec(true).await?;
+        try_redis(txn.expire(&key, 60).await)?;
+        try_redis(txn.lpush("successful_auths", key).await)?;
+        try_redis(txn.expire("successful_auths", 180).await)?;
+        try_redis(txn.exec(true).await)?;
 
         Ok(())
     }

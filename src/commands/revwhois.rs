@@ -40,14 +40,30 @@ pub async fn revwhois(
 
     let lang = ctx.data().db.server_language(guild_id.get()).await;
     let lang = lang.as_deref().unwrap_or("en");
-    
+
     let userlink = format!("[{user}](<{}>)", user_link(&user, lang));
     match &results[..] {
-        [] => ctx.reply(format!("{userlink} has not authenticated to this server.")).await?,
-        &[id] => ctx.reply(format!("{userlink} is authenticated to {}", Mention::User(id.into()))).await?,
+        [] => {
+            ctx.reply(format!("{userlink} has not authenticated to this server."))
+                .await?
+        }
+        &[id] => {
+            ctx.reply(format!(
+                "{userlink} is authenticated to {}",
+                Mention::User(id.into())
+            ))
+            .await?
+        }
         [ids @ ..] => {
-            let s = ids.iter().copied().map(|id| format!("\n* {}", Mention::User(id.into()))).collect::<String>();
-            ctx.reply(format!("{userlink} is authenticated to the following accounts:{s}")).await?
+            let s = ids
+                .iter()
+                .copied()
+                .map(|id| format!("\n* {}", Mention::User(id.into())))
+                .collect::<String>();
+            ctx.reply(format!(
+                "{userlink} is authenticated to the following accounts:{s}"
+            ))
+            .await?
         }
     };
     Ok(())

@@ -18,7 +18,12 @@ pub async fn register(ctx: Context<'_>, guild: Option<GuildId>) -> Result {
         return Ok(());
     }
     if let Some(guild) = guild {
-        guild.set_commands(ctx, poise::samples::create_application_commands(&ctx.framework().options().commands)).await?;
+        guild
+            .set_commands(
+                ctx,
+                poise::samples::create_application_commands(&ctx.framework().options().commands),
+            )
+            .await?;
     } else {
         poise::builtins::register_application_commands_buttons(ctx).await?;
     }

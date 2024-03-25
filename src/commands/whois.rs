@@ -11,7 +11,9 @@ use crate::{Context, Result};
 
 pub fn user_link(user_name: &str, lang: &str) -> String {
     let normalized_name = user_name.replace(' ', "+");
-    format!("https://{lang}.wikipedia.org/w/index.php?title=Special%3ACentralAuth/{normalized_name}")
+    format!(
+        "https://{lang}.wikipedia.org/w/index.php?title=Special%3ACentralAuth/{normalized_name}"
+    )
 }
 
 pub struct MedalInfo {
@@ -197,9 +199,7 @@ pub async fn whois(
     let user_id = user.unwrap_or_else(|| ctx.author().id);
     let user = user_id.get();
     let guild_id = ctx.guild_id().ok_or_eyre("must be in guild")?.get();
-    let whois = db
-        .whois(user, guild_id)
-        .await?;
+    let whois = db.whois(user, guild_id).await?;
 
     let Some(WhoisResult { wikimedia_id }) = whois else {
         ctx.reply("no user found. either the user is not in this server or is unauthenticated")
