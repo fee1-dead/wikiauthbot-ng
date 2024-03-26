@@ -5,7 +5,9 @@ use tracing_subscriber::EnvFilter;
 use wikiauthbot_common::Config;
 use wikiauthbot_db::DatabaseConnection;
 
-mod commands;
+use crate::commands::whois::{fetch_whois, user_link};
+
+pub mod commands;
 mod events;
 
 pub struct Data {
@@ -40,11 +42,23 @@ async fn event_handler(
             trace!(?guild, "new member");
             if let Some(chan) = u.db.welcome_channel_id(guild.get()).await? {
                 let mention = new_member.mention();
-                // TODO link the application command through something like "</auth:1025443470388764714>"
-                CreateMessage::new()
+                let msg = if let Ok(Some(whois)) = u.db.whois(new_member.user.id.get(), guild.get()) {
+                    match (fetch_whois(whois.wikimedia_id).await, u.db.server_language(guild.get()).await) {
+                        (Ok(whois), Ok(lang)) => {
+                            let name = whois.name;
+                            let user_link = user_link(&name, &lang);
+                            CreateMessage::new().content(format!("Welcome {mention}! You've already authenticated as [{name}](<{user_link}>), so you don't need to authenticate again."))
+                        }
+                        _ => {
+                            tracing::error!("failed to fetch whois!");
+                            CreateMessage::new().content(format!("Welcome {mention}! You've already authenticated (error while trying to fetch info), so you don't need to authenticate again."))
+                        }
+                    }
+                } else {
+                    CreateMessage::new()
                     .content(format!("Welcome {mention}! If you would like to authenticate (validate) your Wikimedia account, please type </auth:1221128504410898571>"))
-                    .reactions(['👋'])
-                    .execute(ctx, (chan.into(), Some(guild))).await?;
+                };
+                msg.reactions(['👋']).execute(ctx, (chan.into(), Some(guild))).await?;
             }
         }
         FullEvent::Ready { .. } => {

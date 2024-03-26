@@ -69,7 +69,7 @@ pub struct WikiInfo {
 
 #[derive(serde::Deserialize)]
 pub struct WhoisInfo {
-    name: String,
+    pub name: String,
     // medal_url: &'static str,
     registration: String,
     home: String,
@@ -187,6 +187,21 @@ impl WhoisInfo {
     }
 }
 
+pub async fn fetch_whois(wikimedia_id: u32) -> Result<WhoisInfo> {
+    let v = client
+        .get_value(&[
+            ("action", "query"),
+            ("meta", "globaluserinfo"),
+            ("guiprop", "groups|merged|unattached"),
+            ("guiid", &wikimedia_id.to_string()),
+        ])
+        .await
+        .wrap_err("querying API")?["query"]["globaluserinfo"]
+        .take();
+    
+    serde_json::from_value(v).map_err(Into::into)
+}
+
 #[poise::command(slash_command, ephemeral, guild_only = true)]
 /// Check account details for an authenticated member
 pub async fn whois(
@@ -210,18 +225,7 @@ pub async fn whois(
     let lang = db.server_language(guild_id).await;
     let lang = lang.as_deref().unwrap_or("en");
 
-    let v = client
-        .get_value(&[
-            ("action", "query"),
-            ("meta", "globaluserinfo"),
-            ("guiprop", "groups|merged|unattached"),
-            ("guiid", &wikimedia_id.to_string()),
-        ])
-        .await
-        .wrap_err("querying API")?["query"]["globaluserinfo"]
-        .take();
-
-    let whois: WhoisInfo = serde_json::from_value(v)?;
+    let whois: WhoisInfo = fetch_whois(wikimedia_id)?;
 
     ctx.send(
         CreateReply::default()

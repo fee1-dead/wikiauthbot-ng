@@ -8,7 +8,7 @@ use crate::{Command, Context, Result};
 
 mod auth;
 mod revwhois;
-mod whois;
+pub mod whois;
 
 #[poise::command(prefix_command)]
 pub async fn register(ctx: Context<'_>, guild: Option<GuildId>) -> Result {

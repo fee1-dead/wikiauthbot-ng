@@ -1,8 +1,10 @@
 use std::num::NonZeroU64;
+use std::time::Duration;
 
 use serenity::all::{
     Builder, CreateMessage, EditInteractionResponse, GuildId, Mention, RoleId, UserId,
 };
+use tokio::time::timeout;
 use tokio::spawn;
 use tracing::error;
 
@@ -32,10 +34,14 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
     });
     spawn(async move {
         loop {
-            let successful_auth = match db.recv_successful_req().await {
-                Ok(x) => x,
-                Err(e) => {
+            let successful_auth = match timeout(Duration::from_secs(1), db.recv_successful_req()).await {
+                Ok(Ok(x)) => x,
+                Ok(Err(e)) => {
                     tracing::error!(?e, "couldn't receive successful request");
+                    continue;
+                }
+                Err(_) => {
+                    // timeout occured
                     continue;
                 }
             };
@@ -82,6 +88,11 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                 continue;
             };
 
+            let Ok(lang) = parent_db.server_language(guild.get()).await else {
+                tracing::error!("failed to get information for server: server language");
+                continue;
+            };
+
             if authenticated_role_id != 0 {
                 if let Err(e) = http
                     .add_member_role(
@@ -100,9 +111,10 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
 
             if auth_log_channel_id != 0 {
                 let mention = Mention::User(discord_user_id);
+                let user_link = user_link(&username, &lang);
                 if let Err(e) = CreateMessage::new()
                     .content(format!(
-                        "{mention} authenticated as User:{username} (id {wmf_id})"
+                        "{mention} authenticated as [User:{username}](<{user_link}>) (id {wmf_id})"
                     ))
                     .execute(&http, (auth_log_channel_id.into(), Some(guild)))
                     .await
