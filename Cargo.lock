@@ -2586,6 +2586,7 @@ dependencies = [
  "serde",
  "tokio",
  "toml",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -2616,7 +2617,6 @@ dependencies = [
  "serenity",
  "tokio",
  "tracing",
- "tracing-subscriber",
  "url",
  "wikiauthbot-common",
  "wikiauthbot-db",
@@ -2632,7 +2632,6 @@ dependencies = [
  "reqwest",
  "serde",
  "tokio",
- "tracing-subscriber",
  "wikiauthbot-common",
  "wikiauthbot-db",
 ]

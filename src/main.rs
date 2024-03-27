@@ -1,8 +1,6 @@
 use serenity::all::{Builder, CreateMessage, GatewayIntents, Mentionable, UserId};
 use serenity::client::{ClientBuilder, FullEvent};
-use tracing::level_filters::LevelFilter;
 use tracing::trace;
-use tracing_subscriber::EnvFilter;
 use wikiauthbot_common::Config;
 use wikiauthbot_db::DatabaseConnection;
 
@@ -24,7 +22,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 type Result<T = (), E = Error> = std::result::Result<T, E>;
 
 fn main() -> Result<()> {
-    color_eyre::install()?;
+    wikiauthbot_common::setup_common()?;
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
@@ -122,19 +120,6 @@ async fn bot_start() -> Result<()> {
 }
 
 async fn main_inner() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .with_env_filter(
-            EnvFilter::from_default_env()
-                .add_directive(LevelFilter::WARN.into())
-                .add_directive(
-                    "wikiauthbot-ng,wikiauthbot-server,wikiauthbot-db,wikiauthbot-common"
-                        .parse()
-                        .unwrap(),
-                ),
-        )
-        .init();
-
     tokio::spawn(bot_start());
 
     tokio::signal::ctrl_c().await?;

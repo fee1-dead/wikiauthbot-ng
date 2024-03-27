@@ -42,7 +42,6 @@ serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 url = "2.5.0"
 wikiauthbot-common = { path = "./wikiauthbot-common" }
 wikiauthbot-db = { path = "wikiauthbot-db" }
