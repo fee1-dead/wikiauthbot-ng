@@ -105,6 +105,7 @@ impl DatabaseConnection {
             let mut int = tokio::time::interval(Duration::from_secs(15));
             loop {
                 int.tick().await;
+                tracing::info!("sending keepalive");
                 match tokio::time::timeout(Duration::from_secs(3), new.get("auth:468253584421552139")).await {
                     Ok(Ok(x)) => {
                         let _: String = x;
