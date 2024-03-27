@@ -21,22 +21,22 @@ pub fn setup_common() -> color_eyre::Result<()> {
             EnvFilter::from_default_env()
                 .add_directive(LevelFilter::WARN.into())
                 .add_directive(
-                    "wikiauthbot-ng"
+                    "wikiauthbot_ng"
                         .parse()
                         .unwrap(),
                 )
                 .add_directive(
-                    "wikiauthbot-server"
+                    "wikiauthbot_server"
                         .parse()
                         .unwrap(),
                 )
                 .add_directive(
-                    "wikiauthbot-db"
+                    "wikiauthbot_db"
                         .parse()
                         .unwrap(),
                 )
                 .add_directive(
-                    "wikiauthbot-common"
+                    "wikiauthbot_common"
                         .parse()
                         .unwrap(),
                 ),

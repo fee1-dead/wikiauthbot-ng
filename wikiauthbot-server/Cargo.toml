@@ -10,7 +10,8 @@ edition.workspace = true
 actix-web = "4.4.0"
 reqwest = { version = "0.11.24", default-features = false, features = ["rustls-tls", "json"] }
 serde.workspace = true
-tokio = { version = "1.35.1", features = ["sync"] }
+tokio.workspace = true
+tracing.workspace = true
 wikiauthbot-common = { path = "../wikiauthbot-common" }
 wikiauthbot-db = { path = "../wikiauthbot-db" }
 color-eyre.workspace = true

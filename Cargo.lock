@@ -2632,6 +2632,7 @@ dependencies = [
  "reqwest",
  "serde",
  "tokio",
+ "tracing",
  "wikiauthbot-common",
  "wikiauthbot-db",
 ]

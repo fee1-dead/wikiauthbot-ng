@@ -36,8 +36,16 @@ struct State {
 }
 
 #[get("/")]
-async fn index() -> &'static str {
-    "wikiauthbot-server is running!"
+async fn index(app_state: web::Data<Arc<State>>) -> String {
+    match app_state.db.ping().await {
+        Ok(elapsed) => {
+            format!("wikiauthbot-server is running! time it took for redis to respond: {elapsed:?}")
+        }
+        Err(e) => {
+            tracing::error!(%e);
+            format!("Error occured when requesting from Redis. Read the logs for more details!")
+        }
+    }
 }
 
 #[get("/authorize")]

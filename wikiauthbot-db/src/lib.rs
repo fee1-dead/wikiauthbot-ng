@@ -1,5 +1,5 @@
 use std::num::NonZeroU64;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use fred::prelude::*;
 use fred::types::{KeyspaceEvent, Scanner as _, DEFAULT_JITTER_MS};
@@ -54,6 +54,12 @@ impl DatabaseConnection {
         let client = self.client.clone_new();
         try_redis(client.init().await)?;
         Ok(ChildDatabaseConnection { client })
+    }
+
+    pub async fn ping(&self) -> RedisResult<Duration> {
+        let instant = Instant::now();
+        let _ = self.client.get("auth:468253584421552139").await?;
+        Ok(instant.elapsed())
     }
 }
 
