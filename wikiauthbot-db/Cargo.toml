@@ -11,4 +11,5 @@ color-eyre.workspace = true
 futures.workspace = true
 fred.workspace = true
 wikiauthbot-common = { path = "../wikiauthbot-common" }
+tokio.workspace = true
 tracing.workspace = true

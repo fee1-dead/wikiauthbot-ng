@@ -1,4 +1,5 @@
 use std::num::NonZeroU64;
+use std::time::Duration;
 
 use fred::prelude::*;
 use fred::types::{KeyspaceEvent, Scanner as _, DEFAULT_JITTER_MS};
@@ -92,6 +93,34 @@ impl DatabaseConnection {
         F: Fn(KeyspaceEvent) -> RedisResult<()> + Send + 'static,
     {
         self.client.on_keyspace_event(func);
+    }
+
+    pub fn keepalive(&self) {
+        let new = self.client.clone_new();
+        tokio::task::spawn(async move {
+            new.init().await.unwrap_or_else(|e| {
+                tracing::error!(%e, "failed to init keepalive client");
+                std::process::exit(-1);
+            });
+            let mut int = tokio::time::interval(Duration::from_secs(15));
+            loop {
+                int.tick().await;
+                match tokio::time::timeout(Duration::from_secs(3), new.get("auth:468253584421552139")).await {
+                    Ok(Ok(x)) => {
+                        let _: String = x;
+                    }
+                    Ok(Err(e)) => {
+                        tracing::error!(%e, "keepalive client error");
+                        std::process::exit(-1);
+                    }
+                    Err(e) =>  {
+                        tracing::error!(%e, "keepalive client error");
+                        std::process::exit(-1);
+                    }
+                }
+
+            }
+        });
     }
 
     pub async fn user_is_authed(&self, discord_id: u64) -> RedisResult<bool> {

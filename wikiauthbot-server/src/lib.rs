@@ -112,6 +112,7 @@ async fn authorize(
 
 #[must_use]
 pub async fn start(db: DatabaseConnection) -> color_eyre::Result<Server> {
+    db.keepalive();
     let state = Arc::new(State {
         db,
         client: ClientBuilder::new().build()?,

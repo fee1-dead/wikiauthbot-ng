@@ -72,10 +72,11 @@ async fn event_handler(
 
 async fn bot_start() -> Result<()> {
     let config = Config::get()?;
+    let db = DatabaseConnection::prod().await?;
+    db.keepalive();
     let framework = poise::FrameworkBuilder::default()
-        .setup(|_ctx, _ready, _framework| {
-            Box::pin(async {
-                let db = DatabaseConnection::prod().await?;
+        .setup(move |_ctx, _ready, _framework| {
+            Box::pin(async move  {
                 let data = Data {
                     client: wikiauthbot_common::mwclient().await?,
                     config,
