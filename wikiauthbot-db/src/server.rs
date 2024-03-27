@@ -9,20 +9,22 @@ use crate::{try_redis, ChildDatabaseConnection, DatabaseConnection};
 
 impl ChildDatabaseConnection {
     pub async fn recv_successful_req(&self) -> color_eyre::Result<SuccessfulAuth> {
-        let (_, key): (String, String) = try_redis(self.client.blpop("successful_auths", 0.0).await)?;
-        let (discord_user_id, guild_id, central_user_id, username, brand_new) = try_redis(self
-            .client
-            .hmget(
-                key,
-                &[
-                    "discord_user_id",
-                    "guild_id",
-                    "central_user_id",
-                    "username",
-                    "brand_new",
-                ],
-            )
-            .await)?;
+        let (_, key): (String, String) =
+            try_redis(self.client.blpop("successful_auths", 0.0).await)?;
+        let (discord_user_id, guild_id, central_user_id, username, brand_new) = try_redis(
+            self.client
+                .hmget(
+                    key,
+                    &[
+                        "discord_user_id",
+                        "guild_id",
+                        "central_user_id",
+                        "username",
+                        "brand_new",
+                    ],
+                )
+                .await,
+        )?;
         Ok(SuccessfulAuth {
             discord_user_id: NonZeroU64::new(discord_user_id).context("null discord_user_id")?,
             guild_id: NonZeroU64::new(guild_id).context("null guild_id")?,
@@ -52,18 +54,22 @@ impl DatabaseConnection {
     ) -> color_eyre::Result<()> {
         let expiring_key = format!("auth_message:expiry:{cont_token}");
         let client = self.client.pipeline();
-        try_redis(client
-            .set(
-                format!("auth_message:{discord_user_id}"),
-                &expiring_key,
-                Some(Expiration::EX(6 * 60)),
-                None,
-                false,
-            )
-            .await)?;
-        try_redis(client
-            .set(expiring_key, "", Some(Expiration::EX(5 * 60)), None, false)
-            .await)?;
+        try_redis(
+            client
+                .set(
+                    format!("auth_message:{discord_user_id}"),
+                    &expiring_key,
+                    Some(Expiration::EX(6 * 60)),
+                    None,
+                    false,
+                )
+                .await,
+        )?;
+        try_redis(
+            client
+                .set(expiring_key, "", Some(Expiration::EX(5 * 60)), None, false)
+                .await,
+        )?;
         try_redis(client.all().await)?;
         Ok(())
     }
@@ -86,23 +92,27 @@ impl DatabaseConnection {
         guild_id: NonZeroU64,
     ) -> RedisResult<()> {
         let txn = self.client.multi();
-        try_redis(txn.set(
-            format!("auth_req:{state}:discord_user_id"),
-            discord_user_id.get(),
-            Some(Expiration::EX(60 * 10)),
-            None,
-            false,
-        )
-        .await)?;
-    try_redis(txn.set(
-            format!("auth_req:{state}:guild_id"),
-            guild_id.get(),
-            Some(Expiration::EX(60 * 10)),
-            None,
-            false,
-        )
-        .await)?;
-    try_redis(txn.exec(true).await)
+        try_redis(
+            txn.set(
+                format!("auth_req:{state}:discord_user_id"),
+                discord_user_id.get(),
+                Some(Expiration::EX(60 * 10)),
+                None,
+                false,
+            )
+            .await,
+        )?;
+        try_redis(
+            txn.set(
+                format!("auth_req:{state}:guild_id"),
+                guild_id.get(),
+                Some(Expiration::EX(60 * 10)),
+                None,
+                false,
+            )
+            .await,
+        )?;
+        try_redis(txn.exec(true).await)
     }
 
     pub async fn send_successful_req(
@@ -118,17 +128,19 @@ impl DatabaseConnection {
         let txn = self.client.multi();
 
         let key = format!("successful_auth:{}", discord_user_id);
-        try_redis(txn.hset(
-            &key,
-            [
-                ("discord_user_id", discord_user_id.get().try_into()?),
-                ("guild_id", guild_id.get().try_into()?),
-                ("central_user_id", central_user_id.into()),
-                ("username", String::from(username).into()),
-                ("brand_new", RedisValue::Boolean(brand_new)),
-            ],
-        )
-        .await)?;
+        try_redis(
+            txn.hset(
+                &key,
+                [
+                    ("discord_user_id", discord_user_id.get().try_into()?),
+                    ("guild_id", guild_id.get().try_into()?),
+                    ("central_user_id", central_user_id.into()),
+                    ("username", String::from(username).into()),
+                    ("brand_new", RedisValue::Boolean(brand_new)),
+                ],
+            )
+            .await,
+        )?;
         // make the hash expire after a minute.
         try_redis(txn.expire(&key, 60).await)?;
         try_redis(txn.lpush("successful_auths", key).await)?;

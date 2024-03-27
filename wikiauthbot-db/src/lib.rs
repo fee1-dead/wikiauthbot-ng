@@ -106,7 +106,12 @@ impl DatabaseConnection {
             loop {
                 int.tick().await;
                 tracing::info!("sending keepalive");
-                match tokio::time::timeout(Duration::from_secs(3), new.get("auth:468253584421552139")).await {
+                match tokio::time::timeout(
+                    Duration::from_secs(3),
+                    new.get("auth:468253584421552139"),
+                )
+                .await
+                {
                     Ok(Ok(x)) => {
                         let _: String = x;
                     }
@@ -114,12 +119,11 @@ impl DatabaseConnection {
                         tracing::error!(%e, "keepalive client error");
                         std::process::exit(-1);
                     }
-                    Err(e) =>  {
+                    Err(e) => {
                         tracing::error!(%e, "keepalive client error");
                         std::process::exit(-1);
                     }
                 }
-
             }
         });
     }

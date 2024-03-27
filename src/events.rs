@@ -4,8 +4,8 @@ use std::time::Duration;
 use serenity::all::{
     Builder, CreateMessage, EditInteractionResponse, GuildId, Mention, RoleId, UserId,
 };
-use tokio::time::timeout;
 use tokio::spawn;
+use tokio::time::timeout;
 use tracing::error;
 
 use crate::commands::whois::user_link;
@@ -35,17 +35,18 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
     });
     spawn(async move {
         loop {
-            let successful_auth = match timeout(Duration::from_secs(1), db.recv_successful_req()).await {
-                Ok(Ok(x)) => x,
-                Ok(Err(e)) => {
-                    tracing::error!(?e, "couldn't receive successful request");
-                    continue;
-                }
-                Err(_) => {
-                    // timeout occured
-                    continue;
-                }
-            };
+            let successful_auth =
+                match timeout(Duration::from_secs(1), db.recv_successful_req()).await {
+                    Ok(Ok(x)) => x,
+                    Ok(Err(e)) => {
+                        tracing::error!(?e, "couldn't receive successful request");
+                        continue;
+                    }
+                    Err(_) => {
+                        // timeout occured
+                        continue;
+                    }
+                };
 
             let wmf_id = successful_auth.central_user_id;
             let username = successful_auth.username;

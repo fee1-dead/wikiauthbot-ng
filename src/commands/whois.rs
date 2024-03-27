@@ -198,7 +198,7 @@ pub async fn fetch_whois(client: &mwapi::Client, wikimedia_id: u32) -> Result<Wh
         .await
         .wrap_err("querying API")?["query"]["globaluserinfo"]
         .take();
-    
+
     serde_json::from_value(v).map_err(Into::into)
 }
 

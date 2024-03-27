@@ -1,5 +1,6 @@
 use serenity::all::{Builder, CreateMessage, GatewayIntents, Mentionable, UserId};
 use serenity::client::{ClientBuilder, FullEvent};
+use tracing::level_filters::LevelFilter;
 use tracing::trace;
 use tracing_subscriber::EnvFilter;
 use wikiauthbot_common::Config;
@@ -42,8 +43,13 @@ async fn event_handler(
             trace!(?guild, "new member");
             if let Some(chan) = u.db.welcome_channel_id(guild.get()).await? {
                 let mention = new_member.mention();
-                let msg = if let Ok(Some(whois)) = u.db.whois(new_member.user.id.get(), guild.get()).await {
-                    match (fetch_whois(&u.client, whois.wikimedia_id).await, u.db.server_language(guild.get()).await) {
+                let msg = if let Ok(Some(whois)) =
+                    u.db.whois(new_member.user.id.get(), guild.get()).await
+                {
+                    match (
+                        fetch_whois(&u.client, whois.wikimedia_id).await,
+                        u.db.server_language(guild.get()).await,
+                    ) {
                         (Ok(whois), Ok(lang)) => {
                             let name = whois.name;
                             let user_link = user_link(&name, &lang);
@@ -58,7 +64,9 @@ async fn event_handler(
                     CreateMessage::new()
                     .content(format!("Welcome {mention}! If you would like to authenticate (validate) your Wikimedia account, please type </auth:1221128504410898571>"))
                 };
-                msg.reactions(['👋']).execute(ctx, (chan.into(), Some(guild))).await?;
+                msg.reactions(['👋'])
+                    .execute(ctx, (chan.into(), Some(guild)))
+                    .await?;
             }
         }
         FullEvent::Ready { .. } => {
@@ -76,7 +84,7 @@ async fn bot_start() -> Result<()> {
     db.keepalive();
     let framework = poise::FrameworkBuilder::default()
         .setup(move |_ctx, _ready, _framework| {
-            Box::pin(async move  {
+            Box::pin(async move {
                 let data = Data {
                     client: wikiauthbot_common::mwclient().await?,
                     config,
@@ -116,7 +124,15 @@ async fn bot_start() -> Result<()> {
 async fn main_inner() -> Result<()> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
-        .with_env_filter(EnvFilter::from_default_env())
+        .with_env_filter(
+            EnvFilter::from_default_env()
+                .add_directive(LevelFilter::WARN.into())
+                .add_directive(
+                    "wikiauthbot-ng,wikiauthbot-server,wikiauthbot-db,wikiauthbot-common"
+                        .parse()
+                        .unwrap(),
+                ),
+        )
         .init();
 
     tokio::spawn(bot_start());
