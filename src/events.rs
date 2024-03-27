@@ -8,6 +8,7 @@ use tokio::time::timeout;
 use tokio::spawn;
 use tracing::error;
 
+use crate::commands::whois::user_link;
 use crate::Data;
 
 pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<()> {

@@ -187,7 +187,7 @@ impl WhoisInfo {
     }
 }
 
-pub async fn fetch_whois(wikimedia_id: u32) -> Result<WhoisInfo> {
+pub async fn fetch_whois(client: &mwapi::Client, wikimedia_id: u32) -> Result<WhoisInfo> {
     let v = client
         .get_value(&[
             ("action", "query"),
@@ -225,7 +225,7 @@ pub async fn whois(
     let lang = db.server_language(guild_id).await;
     let lang = lang.as_deref().unwrap_or("en");
 
-    let whois: WhoisInfo = fetch_whois(wikimedia_id)?;
+    let whois: WhoisInfo = fetch_whois(client, wikimedia_id).await?;
 
     ctx.send(
         CreateReply::default()

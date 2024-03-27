@@ -42,8 +42,8 @@ async fn event_handler(
             trace!(?guild, "new member");
             if let Some(chan) = u.db.welcome_channel_id(guild.get()).await? {
                 let mention = new_member.mention();
-                let msg = if let Ok(Some(whois)) = u.db.whois(new_member.user.id.get(), guild.get()) {
-                    match (fetch_whois(whois.wikimedia_id).await, u.db.server_language(guild.get()).await) {
+                let msg = if let Ok(Some(whois)) = u.db.whois(new_member.user.id.get(), guild.get()).await {
+                    match (fetch_whois(&u.client, whois.wikimedia_id).await, u.db.server_language(guild.get()).await) {
                         (Ok(whois), Ok(lang)) => {
                             let name = whois.name;
                             let user_link = user_link(&name, &lang);
