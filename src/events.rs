@@ -1,5 +1,6 @@
 use std::num::NonZeroU64;
 
+use fred::error::{RedisError, RedisErrorKind};
 use serenity::all::{
     Builder, CreateMessage, EditInteractionResponse, GuildId, Mention, RoleId, UserId,
 };
@@ -37,6 +38,11 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                 match db.recv_successful_req().await {
                     Ok(x) => x,
                     Err(e) => {
+                        if let Some(re) = e.downcast_ref::<RedisError>() {
+                            if let RedisErrorKind::Timeout = re.kind() {
+                                continue;
+                            }
+                        }
                         tracing::error!(?e, "couldn't receive successful request");
                         continue;
                     }
