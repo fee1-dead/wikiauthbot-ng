@@ -30,7 +30,9 @@ pub async fn auth(ctx: Context<'_>) -> Result {
     {
         ctx.reply("You are already authenticated to this server. No need to authenticate again.")
             .await?;
-        // TODO we might reassign roles as a recheck
+        if let Ok(authenticated_role) = db.authenticated_role_id(guild_id.get()).await {
+            ctx.author_member().await.unwrap().add_role(ctx, authenticated_role).await?;
+        }
         return Ok(());
     }
 

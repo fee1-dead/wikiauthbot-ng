@@ -44,6 +44,9 @@ async fn event_handler(
                 let msg = if let Ok(Some(whois)) =
                     u.db.whois(new_member.user.id.get(), guild.get()).await
                 {
+                    if let Ok(authenticated_role) = u.db.authenticated_role_id(guild.get()).await {
+                        new_member.add_role(ctx, authenticated_role).await?;
+                    }
                     match (
                         fetch_whois(&u.client, whois.wikimedia_id).await,
                         u.db.server_language(guild.get()).await,
@@ -58,6 +61,7 @@ async fn event_handler(
                             CreateMessage::new().content(format!("Welcome {mention}! You've already authenticated (error while trying to fetch info), so you don't need to authenticate again."))
                         }
                     }
+                    
                 } else {
                     CreateMessage::new()
                     .content(format!("Welcome {mention}! If you would like to authenticate (validate) your Wikimedia account, please type </auth:1221128504410898571>"))
