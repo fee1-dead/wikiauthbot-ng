@@ -25,6 +25,9 @@ async fn make_and_init_redis_client(config: RedisConfig) -> RedisResult<RedisCli
         delay: 1000,
         jitter: DEFAULT_JITTER_MS,
     });
+    let mut conn_config = ConnectionConfig::default();
+    conn_config.unresponsive.max_timeout = Some(Duration::from_secs(10));
+    builder.set_connection_config(conn_config);
     let client = try_redis(builder.build())?;
     try_redis(client.init().await)?;
     Ok(client)
