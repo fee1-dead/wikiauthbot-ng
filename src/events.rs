@@ -36,14 +36,10 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
     spawn(async move {
         loop {
             let successful_auth =
-                match timeout(Duration::from_secs(1), db.recv_successful_req()).await {
-                    Ok(Ok(x)) => x,
-                    Ok(Err(e)) => {
+                match db.recv_successful_req().await {
+                    Ok(x) => x,
+                    Err(e) => {
                         tracing::error!(?e, "couldn't receive successful request");
-                        continue;
-                    }
-                    Err(_) => {
-                        // timeout occured
                         continue;
                     }
                 };

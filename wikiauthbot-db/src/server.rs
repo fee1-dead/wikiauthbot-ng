@@ -10,7 +10,7 @@ use crate::{try_redis, ChildDatabaseConnection, DatabaseConnection};
 impl ChildDatabaseConnection {
     pub async fn recv_successful_req(&self) -> color_eyre::Result<SuccessfulAuth> {
         let (_, key): (String, String) =
-            try_redis(self.client.blpop("successful_auths", 0.0).await)?;
+            try_redis(self.client.blpop("successful_auths", 10.0).await)?;
         let (discord_user_id, guild_id, central_user_id, username, brand_new) = try_redis(
             self.client
                 .hmget(
