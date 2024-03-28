@@ -82,7 +82,7 @@ async fn event_handler(
 
 async fn bot_start() -> Result<()> {
     let config = Config::get()?;
-    let db = DatabaseConnection::prod().await?;
+    let db = DatabaseConnection::prod_vps().await?;
     db.keepalive();
     let framework = poise::FrameworkBuilder::default()
         .setup(move |_ctx, _ready, _framework| {

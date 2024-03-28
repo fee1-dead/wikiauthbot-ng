@@ -48,6 +48,13 @@ impl DatabaseConnection {
         Ok(Self { client })
     }
 
+    pub async fn prod_vps() -> color_eyre::Result<Self> {
+        let password = &Config::get()?.redis_password;
+        let url = format!("redis://:{password}@127.0.0.1:6379");
+        let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
+        Ok(Self { client })
+    }
+
     pub async fn dev() -> RedisResult<Self> {
         let client = make_and_init_redis_client(RedisConfig::default()).await?;
         Ok(Self { client })
