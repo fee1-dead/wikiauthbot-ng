@@ -102,7 +102,9 @@ impl DatabaseConnection {
     }
 
     pub fn keepalive(&self) {
-        let new = self.client.clone_new();
+        // I don't think this works.
+        // TODO
+        /* let new = self.client.clone_new();
         tokio::task::spawn(async move {
             new.init().await.unwrap_or_else(|e| {
                 tracing::error!(%e, "failed to init keepalive client");
@@ -111,7 +113,6 @@ impl DatabaseConnection {
             let mut int = tokio::time::interval(Duration::from_secs(15));
             loop {
                 int.tick().await;
-                tracing::info!("sending keepalive");
                 match tokio::time::timeout(
                     Duration::from_secs(3),
                     new.get("auth:468253584421552139"),
@@ -131,7 +132,7 @@ impl DatabaseConnection {
                     }
                 }
             }
-        });
+        }); */
     }
 
     pub async fn user_is_authed(&self, discord_id: u64) -> RedisResult<bool> {
