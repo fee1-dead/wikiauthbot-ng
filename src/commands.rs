@@ -215,6 +215,7 @@ pub fn all_commands() -> Vec<Command> {
         migrate_server(),
         revwhois::revwhois(),
         cleanup_roles(),
+        debug_deauth(),
         // whois::whois_test(),
     ]
 }
