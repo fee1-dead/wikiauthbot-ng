@@ -141,8 +141,8 @@ impl DatabaseConnection {
             )
             .await,
         )?;
-        // make the hash expire after a minute.
-        try_redis(txn.expire(&key, 60).await)?;
+        // make the hash expire after ten minutes.
+        try_redis(txn.expire(&key, 600).await)?;
         try_redis(txn.lpush("successful_auths", key).await)?;
         try_redis(txn.expire("successful_auths", 180).await)?;
         try_redis(txn.exec(true).await)?;

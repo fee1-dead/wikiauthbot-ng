@@ -166,6 +166,15 @@ impl DatabaseConnection {
         )
     }
 
+    // this is not clean since revauth2 is not deleted.
+    pub async fn debug_deauth(&self, user_id: u64, guild_id: u64) -> RedisResult<()> {
+        let txn = self.client.pipeline();
+        txn.srem(format!("guilds:{guild_id}:authed"), user_id).await?;
+        txn.del(format!("auth:{user_id}")).await?;
+        txn.all().await?;
+        Ok(())
+    }
+
     pub async fn full_auth(
         &self,
         discord_id: u64,

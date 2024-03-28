@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use serenity::all::{GuildId, RoleId};
+use serenity::all::{GuildId, RoleId, UserId};
 use serenity::futures::TryStreamExt;
 use wikiauthbot_db::ServerSettingsData;
 
@@ -194,6 +194,15 @@ pub async fn setup_server(
 
     ctx.reply("Setup server").await?;
 
+    Ok(())
+}
+
+#[poise::command(prefix_command, owners_only, dm_only, hide_in_help)]
+pub async fn debug_deauth(ctx: Context<'_>, user_id: UserId, guild_id: GuildId) -> Result {
+    let db = &ctx.data().db;
+    ctx.defer_ephemeral().await?;
+    db.debug_deauth(user_id.get(), guild_id.get()).await?;
+    ctx.reply("Done.").await?;
     Ok(())
 }
 

@@ -1,11 +1,9 @@
 use std::num::NonZeroU64;
-use std::time::Duration;
 
 use serenity::all::{
     Builder, CreateMessage, EditInteractionResponse, GuildId, Mention, RoleId, UserId,
 };
 use tokio::spawn;
-use tokio::time::timeout;
 use tracing::error;
 
 use crate::commands::whois::user_link;
