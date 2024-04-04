@@ -131,7 +131,7 @@ pub async fn premigrate_server_check(ctx: Context<'_>, guild_id: GuildId, role_i
 
     ctx.reply(format!("\
     there are {pauthed} linked accounts, and {unauthed} accounts with the given role that have no data and would need to reauth.\n\
-    If you would like to obtain an exact list of people who are not recognized by the bot, contact deadbf.")).await?;
+    If you would like to obtain an exact list of people who are not recognized by the bot, contact dbeef.")).await?;
 
     Ok(())
 }
