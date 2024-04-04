@@ -94,7 +94,7 @@ pub async fn premigrate_server_check(ctx: Context<'_>, guild_id: GuildId, role_i
     let is_server_admin = guild_id.member(ctx, ctx.author().id).await?.permissions(ctx)?.administrator();
 
     if !is_bot_owner && !is_server_admin {
-        // silent fail
+        ctx.reply("Must be a bot owner or server admin to use this command.").await?;
         return Ok(());
     }
 
@@ -151,7 +151,7 @@ pub async fn setup_server(
     let is_server_admin = guild_id.member(ctx, ctx.author().id).await?.permissions(ctx)?.administrator();
 
     if !is_bot_owner && !is_server_admin {
-        // silent fail
+        ctx.reply("Must be a bot owner or server admin to use this command.").await?;
         return Ok(());
     }
 
