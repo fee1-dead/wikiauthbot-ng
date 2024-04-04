@@ -88,10 +88,12 @@ pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
     Ok(())
 }
 
-#[poise::command(prefix_command, owners_only, dm_only, hide_in_help)]
-pub async fn migrate_server(ctx: Context<'_>, guild_id: GuildId, role_id: RoleId) -> Result {
+#[poise::command(prefix_command, dm_only, hide_in_help)]
+pub async fn premigrate_server_check(ctx: Context<'_>, guild_id: GuildId, role_id: RoleId) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
-    if !is_bot_owner {
+    let is_server_admin = guild_id.member(ctx, ctx.author().id).await?.permissions(ctx)?.administrator();
+
+    if !is_bot_owner && !is_server_admin {
         // silent fail
         return Ok(());
     }
@@ -114,7 +116,6 @@ pub async fn migrate_server(ctx: Context<'_>, guild_id: GuildId, role_id: RoleId
                         db.partial_auth(discord_id, guild_id.get()).await?;
                         pauthed.fetch_add(1, Ordering::Relaxed);
                     } else {
-                        println!("unauth: {discord_id}");
                         unauthed.fetch_add(1, Ordering::Relaxed);
                     }
                 }
@@ -128,7 +129,9 @@ pub async fn migrate_server(ctx: Context<'_>, guild_id: GuildId, role_id: RoleId
         unauthed.load(Ordering::Relaxed),
     );
 
-    println!("done! linked: {pauthed}, unlinked: {unauthed}");
+    ctx.reply(format!("\
+    there are {pauthed} linked accounts, and {unauthed} accounts with the given role that has no data and would need to reauth.\n\
+    If you would like to obtain an exact list of people who are not recognized by the bot, contact deadbf.")).await?;
 
     Ok(())
 }
@@ -145,7 +148,9 @@ pub async fn setup_server(
     allow_banned_users: bool,
 ) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
-    if !is_bot_owner {
+    let is_server_admin = guild_id.member(ctx, ctx.author().id).await?.permissions(ctx)?.administrator();
+
+    if !is_bot_owner && !is_server_admin {
         // silent fail
         return Ok(());
     }
@@ -212,7 +217,7 @@ pub fn all_commands() -> Vec<Command> {
         setup_server(),
         auth::auth(),
         whois::whois(),
-        migrate_server(),
+        premigrate_server_check(),
         revwhois::revwhois(),
         cleanup_roles(),
         debug_deauth(),
