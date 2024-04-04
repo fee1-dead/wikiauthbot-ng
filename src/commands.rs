@@ -136,7 +136,7 @@ pub async fn premigrate_server_check(ctx: Context<'_>, guild_id: GuildId, role_i
     Ok(())
 }
 
-#[poise::command(prefix_command, owners_only, dm_only, hide_in_help)]
+#[poise::command(prefix_command, dm_only, hide_in_help)]
 pub async fn setup_server(
     ctx: Context<'_>,
     guild_id: GuildId,
