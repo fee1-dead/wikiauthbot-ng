@@ -28,10 +28,9 @@ pub async fn load_from_json() -> color_eyre::Result<()> {
         .collect::<Vec<_>>();
     let (send_1, mut recv_1) = tokio::sync::mpsc::channel::<AuthUser>(10);
     let (send_2, mut recv_2) = tokio::sync::mpsc::channel::<(u64, u32)>(10);
-    let db = DatabaseConnection::prod().await.unwrap();
+    let db = DatabaseConnection::prod_tunnelled().await.unwrap();
     let db2 = db.clone();
     db.get_wikimedia_id(468253584421552139).await.unwrap();
-
     let a = tokio::task::spawn(async move {
         for u in auth.into_iter() {
             match db.get_wikimedia_id(u.id).await {
@@ -85,7 +84,7 @@ pub async fn load_from_json() -> color_eyre::Result<()> {
             };
             send_2.send((u.id, id as u32)).await.unwrap();
         }
-        serde_json::to_writer(File::create("errored2.json").unwrap(), &failed).unwrap();
+        serde_json::to_writer(File::create("errored3.json").unwrap(), &failed).unwrap();
     });
 
     let c = tokio::task::spawn(async move {
@@ -105,14 +104,16 @@ pub async fn load_from_json() -> color_eyre::Result<()> {
 }
 
 async fn main_inner() -> color_eyre::Result<()> {
-    let redis = DatabaseConnection::prod_tunnelled().await?;
-    redis.build_revauth().await?;
+    println!("Loading JSON and updating database..");
+    // let redis = DatabaseConnection::prod_tunnelled().await?;
+    // redis.build_revauth().await?;
+    load_from_json().await?;
     Ok(())
 }
 
 fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
-    tokio::runtime::Builder::new_current_thread()
+    tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
         .block_on(main_inner())?;

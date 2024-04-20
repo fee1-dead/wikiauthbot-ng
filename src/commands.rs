@@ -88,6 +88,39 @@ pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
     Ok(())
 }
 
+pub async fn unauthed_list(ctx: Context<'_>, guild_id: GuildId) -> Result {
+    let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
+    if !is_bot_owner {
+        ctx.reply("Must be a bot owner to use this command.").await?;
+        return Ok(());
+    }
+    let db = &ctx.data().db;
+    let Ok(role) = db.authenticated_role_id(guild_id.get()).await else {
+        ctx.reply("Server is not setup").await?;
+        return Ok(())
+    };
+
+    let members = guild_id.members_iter(ctx.http()).map_err(color_eyre::Report::from).try_filter_map(|member| {
+        let db = db.clone();
+            async move {
+                Ok(if member.roles.contains(&RoleId::new(role)) {
+                    let discord_id = member.user.id.get();
+                    if db.get_wikimedia_id(discord_id).await?.is_some() {
+                        db.partial_auth(discord_id, guild_id.get()).await?;
+                        None
+                    } else {
+                        Some(discord_id)
+                    }
+                } else {
+                None })
+            }
+    }).try_collect::<Vec<_>>().await?;
+
+    let s = members.into_iter().map(|id| format!("* <@{id}>\n")).collect::<String>();
+    ctx.reply(s).await?;
+    Ok(())
+}
+
 #[poise::command(prefix_command, dm_only, hide_in_help)]
 pub async fn premigrate_server_check(ctx: Context<'_>, guild_id: GuildId, role_id: RoleId) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
