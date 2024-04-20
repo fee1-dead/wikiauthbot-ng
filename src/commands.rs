@@ -88,6 +88,7 @@ pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
     Ok(())
 }
 
+#[poise::command(prefix_command, dm_only, hide_in_help)]
 pub async fn unauthed_list(ctx: Context<'_>, guild_id: GuildId) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
     if !is_bot_owner {
@@ -254,6 +255,7 @@ pub fn all_commands() -> Vec<Command> {
         revwhois::revwhois(),
         cleanup_roles(),
         debug_deauth(),
+        unauthed_list(),
         // whois::whois_test(),
     ]
 }
