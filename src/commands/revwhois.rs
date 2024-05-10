@@ -15,6 +15,7 @@ pub async fn revwhois(
         ctx.reply("not in a guild").await?;
         return Ok(());
     };
+    let db = ctx.data().db_guild(&ctx);
     let mut val: Value = match ctx
         .data()
         .client
@@ -27,18 +28,19 @@ pub async fn revwhois(
     {
         Ok(val) => val,
         Err(_) => {
-            ctx.reply("Could not fetch info for given user. Please make sure you have supplied the correct username").await?;
+            ctx.reply(db.get_message("revwhois_fail").await?).await?;
             return Ok(());
         }
     };
 
     let Some(id) = val["query"]["globaluserinfo"]["id"].take().as_u64() else {
-        ctx.reply("Could not fetch info for given user. Please make sure you have supplied the correct username").await?;
+        ctx.reply(db.get_message("revwhois_fail").await?).await?;
         return Ok(());
     };
+    // TODO rm this .data()
     let results = ctx.data().db.revwhois(id as u32, guild_id.get()).await?;
 
-    let lang = ctx.data().db.server_language(guild_id.get()).await;
+    let lang = db.server_language().await;
     let lang = lang.as_deref().unwrap_or("en");
 
     let userlink = format!("[{user}](<{}>)", user_link(&user, lang));

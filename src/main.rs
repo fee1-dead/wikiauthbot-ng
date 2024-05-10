@@ -9,12 +9,26 @@ use crate::commands::whois::{fetch_whois, user_link};
 pub mod commands;
 mod events;
 
-pub struct Data {
-    // todo: we might want to support multiple CentralAuth instances
-    client: mwapi::Client,
-    db: DatabaseConnection,
-    config: &'static Config,
+mod data_private {
+    use wikiauthbot_common::Config;
+    use wikiauthbot_db::{DatabaseConnection, DatabaseConnectionInGuild};
+
+    pub struct Data {
+        // todo: we might want to support multiple CentralAuth instances
+        pub client: mwapi::Client,
+        pub db: DatabaseConnection,
+        pub config: &'static Config,
+    }
+
+    impl Data {
+        pub fn db_guild<'a>(&'a self, ctx: &poise::Context<Data, super::Error>) -> DatabaseConnectionInGuild<'a> {
+            self.db.in_guild(ctx.guild_id().unwrap())
+        }
+    }
 }
+
+
+type Data = data_private::Data;
 
 type Error = color_eyre::Report;
 type Command = poise::Command<Data, Error>;

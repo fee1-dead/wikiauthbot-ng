@@ -209,21 +209,21 @@ pub async fn whois(
     // TODO i18n description of commands
     #[description = "User to check, leave blank for yourself"] user: Option<UserId>,
 ) -> Result {
-    let crate::Data { client, db, .. } = ctx.data();
+    let crate::Data { client, .. } = ctx.data();
     ctx.defer_ephemeral().await?;
 
     let user_id = user.unwrap_or_else(|| ctx.author().id);
     let user = user_id.get();
-    let guild_id = ctx.guild_id().ok_or_eyre("must be in guild")?.get();
-    let whois = db.whois(user, guild_id).await?;
+    let db = ctx.data().db_guild(&ctx);
+    let whois = db.whois(user).await?;
 
     let Some(WhoisResult { wikimedia_id }) = whois else {
-        ctx.reply("no user found. either the user is not in this server or is unauthenticated")
+        ctx.reply(db.get_message("whois_no_user_found").await?)
             .await?;
         return Ok(());
     };
 
-    let lang = db.server_language(guild_id).await;
+    let lang = db.server_language().await;
     let lang = lang.as_deref().unwrap_or("en");
 
     let whois: WhoisInfo = fetch_whois(client, wikimedia_id).await?;

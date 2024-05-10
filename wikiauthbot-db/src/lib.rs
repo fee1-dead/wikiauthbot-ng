@@ -34,9 +34,31 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         )
     }
     pub async fn get_message(&self, key: &str) -> color_eyre::Result<Cow<'static, str>> {
-        let lang = self.server_language(self.guild_id.get()).await?;
+        let lang = self.server_language().await?;
         wikiauthbot_common::i18n::get_message(&lang, key)
     }
+
+    pub async fn whois(&self, discord_id: u64) -> RedisResult<Option<WhoisResult>> {
+        if !try_redis(self.is_user_authed_in_server(discord_id).await)? {
+            Ok(None)
+        } else {
+            try_redis(
+                self.get_wikimedia_id(discord_id)
+                    .await
+                    .map(|user| user.map(|wikimedia_id| WhoisResult { wikimedia_id })),
+            )
+        }
+    }
+
+    pub async fn server_language(&self) -> RedisResult<String> {
+        let guild_id = self.guild_id;
+        try_redis(
+            self.client
+                .get(format!("guilds:{guild_id}:server_language"))
+                .await,
+        )
+    }
+
 }
 
 impl Deref for DatabaseConnectionInGuild<'_> {
@@ -160,10 +182,10 @@ impl DatabaseConnection {
         )
     }
 
-    pub async fn in_guild(&self, guild_id: NonZeroU64) -> DatabaseConnectionInGuild<'_> {
+    pub fn in_guild(&self, guild_id: impl Into<NonZeroU64>) -> DatabaseConnectionInGuild<'_> {
         DatabaseConnectionInGuild {
             inner: self,
-            guild_id,
+            guild_id: guild_id.into(),
         }
     }
 
@@ -244,6 +266,7 @@ impl DatabaseConnection {
         )
     }
 
+    // TODO remove these duplicated ones in favor of inguild methods
     pub async fn whois(&self, discord_id: u64, guild_id: u64) -> RedisResult<Option<WhoisResult>> {
         if !try_redis(self.is_user_authed_in_server(discord_id, guild_id).await)? {
             Ok(None)
