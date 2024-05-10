@@ -1,0 +1,1 @@
+whois_no_user_found = no user found. either the user is not in this server or is unauthenticated

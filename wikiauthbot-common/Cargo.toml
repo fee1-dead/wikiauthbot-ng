@@ -14,3 +14,5 @@ serde.workspace = true
 toml = { version = "0.8.8", default-features = false, features = ["parse"] }
 mwapi.workspace = true
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+fluent = "0.16.1"
+unic-langid = { version = "0.9.4", features = ["macros"] }

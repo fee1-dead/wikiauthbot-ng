@@ -206,6 +206,7 @@ pub async fn fetch_whois(client: &mwapi::Client, wikimedia_id: u32) -> Result<Wh
 /// Check account details for an authenticated member
 pub async fn whois(
     ctx: Context<'_>,
+    // TODO i18n description of commands
     #[description = "User to check, leave blank for yourself"] user: Option<UserId>,
 ) -> Result {
     let crate::Data { client, db, .. } = ctx.data();

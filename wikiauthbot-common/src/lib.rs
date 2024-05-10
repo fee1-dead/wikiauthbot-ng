@@ -1,8 +1,11 @@
 mod config;
+mod i18n;
+
 pub use config::Config;
 
 mod auth;
 pub use auth::{AuthRequest, SuccessfulAuth};
+
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
@@ -12,6 +15,7 @@ pub async fn mwclient() -> mwapi::Result<mwapi::Client> {
         .build()
         .await
 }
+
 
 pub fn setup_common() -> color_eyre::Result<()> {
     color_eyre::install()?;

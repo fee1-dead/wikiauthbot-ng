@@ -48,6 +48,7 @@ async fn index(app_state: web::Data<Arc<State>>) -> String {
     }
 }
 
+// TODO i18n this
 #[get("/authorize")]
 async fn authorize(
     web::Query(AuthRequestQuery {
