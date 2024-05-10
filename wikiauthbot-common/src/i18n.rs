@@ -1,7 +1,8 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use color_eyre::eyre::ContextCompat;
+use color_eyre::eyre::{bail, ContextCompat};
 use fluent::FluentResource;
 use fluent::concurrent::FluentBundle;
 use unic_langid::langid;
@@ -34,12 +35,24 @@ fn get_locales_map() -> &'static HashMap<&'static str, FluentBundle<FluentResour
     })
 }
 
-fn get_message(lang: &str, id: &str) -> color_eyre::Result<String> {
+/// Very low level, don't use this!
+pub fn get_message(lang: &str, id: &str) -> color_eyre::Result<Cow<'static, str>> {
     let bundle = get_locales_map().get(lang).context("could not get locale for language")?;
     let msg = bundle.get_message(id).with_context(|| format!("`{id}` does not exist in the bundle"))?;
     let val = msg.value().with_context(|| format!("`{id}` in the bundle doesn't have a main value"))?;
     // TODO we should handle the errors
-    Ok(bundle.format_pattern(val, None, &mut vec![]).into_owned())
+    let mut errors = vec![];
+    let msg = bundle.format_pattern(val, None, &mut errors);
+    match &*errors {
+        [] => {}
+        [one] => {
+            return Err(one.clone().into())
+        }
+        [multiple @ ..] => {
+            bail!("multiple fluent errors: {multiple:?}")
+        }
+    }
+    Ok(msg)
 }
 
 #[cfg(test)]

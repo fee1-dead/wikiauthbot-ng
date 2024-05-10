@@ -1,4 +1,6 @@
+use std::borrow::Cow;
 use std::num::NonZeroU64;
+use std::ops::Deref;
 use std::time::{Duration, Instant};
 
 use fred::prelude::*;
@@ -11,6 +13,37 @@ pub mod server;
 #[derive(Clone)]
 pub struct DatabaseConnection {
     client: RedisClient,
+}
+
+#[derive(Clone, Copy)]
+pub struct DatabaseConnectionInGuild<'a> {
+    inner: &'a DatabaseConnection,
+    guild_id: NonZeroU64,
+}
+
+impl<'a> DatabaseConnectionInGuild<'a> {
+    pub async fn is_user_authed_in_server(
+        &self,
+        discord_id: u64,
+    ) -> RedisResult<bool> {
+        let guild_id = self.guild_id;
+        try_redis(
+            self.client
+                .sismember(format!("guilds:{guild_id}:authed"), discord_id)
+                .await,
+        )
+    }
+    pub async fn get_message(&self, key: &str) -> color_eyre::Result<Cow<'static, str>> {
+        let lang = self.server_language(self.guild_id.get()).await?;
+        wikiauthbot_common::i18n::get_message(&lang, key)
+    }
+}
+
+impl Deref for DatabaseConnectionInGuild<'_> {
+    type Target = DatabaseConnection;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 pub struct ChildDatabaseConnection {
@@ -111,40 +144,6 @@ impl DatabaseConnection {
         self.client.on_keyspace_event(func);
     }
 
-    pub fn keepalive(&self) {
-        // I don't think this works.
-        // TODO
-        /* let new = self.client.clone_new();
-        tokio::task::spawn(async move {
-            new.init().await.unwrap_or_else(|e| {
-                tracing::error!(%e, "failed to init keepalive client");
-                std::process::exit(-1);
-            });
-            let mut int = tokio::time::interval(Duration::from_secs(15));
-            loop {
-                int.tick().await;
-                match tokio::time::timeout(
-                    Duration::from_secs(3),
-                    new.get("auth:468253584421552139"),
-                )
-                .await
-                {
-                    Ok(Ok(x)) => {
-                        let _: String = x;
-                    }
-                    Ok(Err(e)) => {
-                        tracing::error!(%e, "keepalive client error");
-                        std::process::exit(-1);
-                    }
-                    Err(e) => {
-                        tracing::error!(%e, "keepalive client error");
-                        std::process::exit(-1);
-                    }
-                }
-            }
-        }); */
-    }
-
     pub async fn user_is_authed(&self, discord_id: u64) -> RedisResult<bool> {
         try_redis(self.client.exists(format!("auth:{discord_id}")).await)
     }
@@ -159,6 +158,13 @@ impl DatabaseConnection {
                 .smembers(format!("revauth2:{wikimedia_id}"))
                 .await,
         )
+    }
+
+    pub async fn in_guild(&self, guild_id: NonZeroU64) -> DatabaseConnectionInGuild<'_> {
+        DatabaseConnectionInGuild {
+            inner: self,
+            guild_id,
+        }
     }
 
     pub async fn is_user_authed_in_server(

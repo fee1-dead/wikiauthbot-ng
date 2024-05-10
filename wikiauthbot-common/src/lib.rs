@@ -1,5 +1,5 @@
 mod config;
-mod i18n;
+pub mod i18n;
 
 pub use config::Config;
 
