@@ -38,6 +38,12 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         wikiauthbot_common::i18n::get_message(&lang, key)
     }
 
+    pub async fn user_link(&self, user_name: &str) -> color_eyre::Result<Cow<'static, str>> {
+        let lang = self.server_language().await?;
+        let normalized_name = user_name.replace(' ', "+");
+        wikiauthbot_common::msg!(&lang, "user_link", normalized_name = normalized_name)
+    }
+
     pub async fn whois(&self, discord_id: u64) -> RedisResult<Option<WhoisResult>> {
         if !try_redis(self.is_user_authed_in_server(discord_id).await)? {
             Ok(None)
@@ -50,6 +56,7 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         }
     }
 
+    // TODO we should set this in a hashmap so this doesn't need async
     pub async fn server_language(&self) -> RedisResult<String> {
         let guild_id = self.guild_id;
         try_redis(
@@ -58,7 +65,6 @@ impl<'a> DatabaseConnectionInGuild<'a> {
                 .await,
         )
     }
-
 }
 
 impl Deref for DatabaseConnectionInGuild<'_> {

@@ -7,7 +7,6 @@ use serenity::all::{
 use tokio::spawn;
 use tracing::error;
 
-use crate::commands::whois::user_link;
 use crate::Data;
 
 pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<()> {
@@ -19,6 +18,7 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
     parent_db.on_keyspace_event(move |event| {
         let key = event.key.as_str_lossy();
         if let Some(token) = key.strip_prefix("auth_message:expiry:") {
+            // FIXME this is actually hard to translate, we need the guild info
             let edit = EditInteractionResponse::new()
                 .content("Authentication request expired.")
                 .embeds(vec![]);
@@ -52,7 +52,9 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
             let username = successful_auth.username;
             let discord_user_id: UserId = NonZeroU64::into(successful_auth.discord_user_id);
             let guild: GuildId = NonZeroU64::into(successful_auth.guild_id);
+            let parent_db = parent_db.in_guild(guild);
 
+            // TODO replace
             if let Err(e) = parent_db
                 .full_auth(discord_user_id.get(), wmf_id, guild.get())
                 .await
@@ -90,11 +92,6 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                 continue;
             };
 
-            let Ok(lang) = parent_db.server_language(guild.get()).await else {
-                tracing::error!("failed to get information for server: server language");
-                continue;
-            };
-
             if authenticated_role_id != 0 {
                 if let Err(e) = http
                     .add_member_role(
@@ -113,7 +110,10 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
 
             if auth_log_channel_id != 0 {
                 let mention = Mention::User(discord_user_id);
-                let user_link = user_link(&username, &lang);
+                let Ok(user_link) = parent_db.user_link(&username).await else {
+                    tracing::error!("couldn't get user link");
+                    continue;
+                };
                 if let Err(e) = CreateMessage::new()
                     .content(format!(
                         "{mention} authenticated as [User:{username}](<{user_link}>) (id {wmf_id})"

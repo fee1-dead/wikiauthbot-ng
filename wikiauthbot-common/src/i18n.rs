@@ -7,6 +7,8 @@ use fluent::{FluentArgs, FluentResource};
 use fluent::concurrent::FluentBundle;
 use unic_langid::langid;
 
+pub use fluent;
+
 pub struct LocaleInfo {
     name: &'static str,
     lang: unic_langid::LanguageIdentifier,
@@ -63,7 +65,7 @@ macro_rules! msg {
         $crate::i18n::get_message($lang, $id)
     };
     ($lang:expr, $id:literal, $($name:ident = $expr:expr),*$(,)?) => {
-        $crate::i18n::get_message_with_args($lang, $id, vec![ $( (stringify!($name), ::fluent::types::FluentValue::from($expr)) ),* ].into_iter().collect())
+        $crate::i18n::get_message_with_args($lang, $id, vec![ $( (stringify!($name), $crate::i18n::fluent::types::FluentValue::from($expr)) ),* ].into_iter().collect())
     }
 }
 

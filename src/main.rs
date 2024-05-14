@@ -4,7 +4,7 @@ use tracing::trace;
 use wikiauthbot_common::Config;
 use wikiauthbot_db::DatabaseConnection;
 
-use crate::commands::whois::{fetch_whois, user_link};
+use crate::commands::whois::fetch_whois;
 
 pub mod commands;
 mod events;
@@ -52,22 +52,20 @@ async fn event_handler(
     match event {
         FullEvent::GuildMemberAddition { new_member } => {
             let guild = new_member.guild_id;
+            let db = u.db.in_guild(guild);
             trace!(?guild, "new member");
-            if let Some(chan) = u.db.welcome_channel_id(guild.get()).await? {
+            if let Some(chan) = db.welcome_channel_id(guild.get()).await? {
                 let mention = new_member.mention();
                 let msg = if let Ok(Some(whois)) =
-                    u.db.whois(new_member.user.id.get(), guild.get()).await
+                    db.whois(new_member.user.id.get()).await
                 {
-                    if let Ok(authenticated_role) = u.db.authenticated_role_id(guild.get()).await {
+                    if let Ok(authenticated_role) = db.authenticated_role_id(guild.get()).await {
                         new_member.add_role(ctx, authenticated_role).await?;
                     }
-                    match (
-                        fetch_whois(&u.client, whois.wikimedia_id).await,
-                        u.db.server_language(guild.get()).await,
-                    ) {
-                        (Ok(whois), Ok(lang)) => {
+                    match fetch_whois(&u.client, whois.wikimedia_id).await {
+                        Ok(whois) => {
                             let name = whois.name;
-                            let user_link = user_link(&name, &lang);
+                            let user_link = db.user_link(&name).await?;
                             CreateMessage::new().content(format!("Welcome {mention}! You've already authenticated as [{name}](<{user_link}>), so you don't need to authenticate again."))
                         }
                         _ => {

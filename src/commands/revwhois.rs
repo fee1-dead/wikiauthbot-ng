@@ -1,7 +1,6 @@
 use serde_json::Value;
 use serenity::all::Mention;
 
-use crate::commands::whois::user_link;
 use crate::{Context, Result};
 
 #[poise::command(slash_command, ephemeral, guild_only = true)]
@@ -40,10 +39,7 @@ pub async fn revwhois(
     // TODO rm this .data()
     let results = ctx.data().db.revwhois(id as u32, guild_id.get()).await?;
 
-    let lang = db.server_language().await;
-    let lang = lang.as_deref().unwrap_or("en");
-
-    let userlink = format!("[{user}](<{}>)", user_link(&user, lang));
+    let userlink = format!("[{user}](<{}>)", db.user_link(&user).await?);
     match &results[..] {
         [] => {
             ctx.reply(format!("{userlink} has not authenticated to this server."))

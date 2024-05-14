@@ -9,13 +9,6 @@ use wikiauthbot_db::WhoisResult;
 
 use crate::{Context, Result};
 
-pub fn user_link(user_name: &str, lang: &str) -> String {
-    let normalized_name = user_name.replace(' ', "+");
-    format!(
-        "https://{lang}.wikipedia.org/w/index.php?title=Special%3ACentralAuth/{normalized_name}"
-    )
-}
-
 pub struct MedalInfo {
     days: u64,
     edits: u64,
@@ -82,7 +75,7 @@ pub struct WhoisInfo {
 }
 
 impl WhoisInfo {
-    pub fn create_embed(mut self, discord_user_id: UserId, lang: &str) -> Result<CreateEmbed> {
+    pub fn create_embed(mut self, discord_user_id: UserId, user_link: &str) -> Result<CreateEmbed> {
         let mut mb = MessageBuilder::new();
         mb.push("Discord: ")
             .mention(&discord_user_id)
@@ -166,7 +159,7 @@ impl WhoisInfo {
 
         let mut fields = fields.into_iter();
 
-        let url = user_link(&self.name, lang);
+        let url = user_link;
         let mut embed = CreateEmbed::new()
             .colour(0xCCCCCC)
             .title(self.name)
@@ -223,15 +216,15 @@ pub async fn whois(
         return Ok(());
     };
 
-    let lang = db.server_language().await;
-    let lang = lang.as_deref().unwrap_or("en");
-
     let whois: WhoisInfo = fetch_whois(client, wikimedia_id).await?;
+
+    // TODO this should be back in create_embed
+    let user_link = db.user_link(&whois.name).await?;
 
     ctx.send(
         CreateReply::default()
             .ephemeral(true)
-            .embed(whois.create_embed(user_id, lang)?),
+            .embed(whois.create_embed(user_id, &user_link)?),
     )
     .await?;
 
