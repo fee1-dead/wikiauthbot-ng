@@ -2,7 +2,7 @@ use std::cmp::Reverse;
 
 use color_eyre::eyre::{Context as _, OptionExt};
 use poise::CreateReply;
-use serenity::all::{Mention, UserId};
+use serenity::all::{Mention, User, UserId};
 use serenity::builder::{CreateEmbed, CreateEmbedFooter};
 use wikiauthbot_db::{msg, DatabaseConnectionInGuild, WhoisResult};
 
@@ -198,17 +198,10 @@ pub async fn fetch_whois(client: &mwapi::Client, wikimedia_id: u32) -> Result<Wh
     serde_json::from_value(v).map_err(Into::into)
 }
 
-#[poise::command(slash_command, ephemeral, guild_only = true)]
-/// Check account details for an authenticated member
-pub async fn whois(
-    ctx: Context<'_>,
-    // TODO i18n description of commands
-    #[description = "User to check, leave blank for yourself"] user: Option<UserId>,
-) -> Result {
+pub async fn whois_impl(ctx: Context<'_>, user_id: UserId) -> Result {
     let crate::Data { client, .. } = ctx.data();
     ctx.defer_ephemeral().await?;
 
-    let user_id = user.unwrap_or_else(|| ctx.author().id);
     let user = user_id.get();
     let db = ctx.data().db_guild(&ctx);
     let whois = db.whois(user).await?;
@@ -229,4 +222,19 @@ pub async fn whois(
     .await?;
 
     Ok(())
+}
+
+#[poise::command(context_menu_command = "Get whois", ephemeral, guild_only = true)]
+pub async fn whois_menu(ctx: Context<'_>, user: User) -> Result {
+    whois_impl(ctx, user.id).await
+}
+
+#[poise::command(slash_command, ephemeral, guild_only = true)]
+/// Check account details for an authenticated member
+pub async fn whois(
+    ctx: Context<'_>,
+    // TODO i18n description of commands
+    #[description = "User to check, leave blank for yourself"] user: Option<UserId>,
+) -> Result {
+    whois_impl(ctx, user.unwrap_or_else(|| ctx.author().id)).await
 }

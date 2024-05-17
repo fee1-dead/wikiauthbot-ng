@@ -215,6 +215,7 @@ pub async fn setup_server(
         return Ok(());
     }
 
+    // TODO: verify that the bot can send to those channels. and can set roles too.
     let data = ServerSettingsData {
         welcome_channel_id,
         auth_log_channel_id,
@@ -253,6 +254,7 @@ pub fn all_commands() -> Vec<Command> {
         setup_server(),
         auth::auth(),
         whois::whois(),
+        whois::whois_menu(),
         premigrate_server_check(),
         revwhois::revwhois(),
         cleanup_roles(),
