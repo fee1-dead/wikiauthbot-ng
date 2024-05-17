@@ -43,6 +43,23 @@ fn main() -> Result<()> {
         .block_on(main_inner())
 }
 
+async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
+    // This is our custom error handler
+    // They are many errors that can occur, so we only handle the ones we want to customize
+    // and forward the rest to the default handler
+    match error {
+        poise::FrameworkError::Setup { error, .. } => tracing::error!("Failed to start bot: {:?}", error),
+        poise::FrameworkError::Command { error, ctx, .. } => {
+            tracing::error!("Error in command `{}`: {:?}", ctx.command().name, error,);
+        }
+        error => {
+            if let Err(e) = poise::builtins::on_error(error).await {
+                tracing::error!("Error while handling error: {}", e)
+            }
+        }
+    }
+}
+
 async fn event_handler(
     ctx: &serenity::all::Context,
     event: &FullEvent,
@@ -95,7 +112,7 @@ async fn event_handler(
 
 async fn bot_start() -> Result<()> {
     let config = Config::get()?;
-    let db = DatabaseConnection::prod_vps().await?;
+    let db = DatabaseConnection::prod_tunnelled().await?;
     let framework = poise::FrameworkBuilder::default()
         .setup(move |_ctx, _ready, _framework| {
             Box::pin(async move {
@@ -120,6 +137,7 @@ async fn bot_start() -> Result<()> {
                 prefix: Some("wab!".into()),
                 ..Default::default()
             },
+            on_error: |error| Box::pin(on_error(error)),
             event_handler: |ctx, event, framework, data| {
                 Box::pin(event_handler(ctx, event, framework, data))
             },

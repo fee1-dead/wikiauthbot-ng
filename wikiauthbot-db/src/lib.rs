@@ -3,6 +3,7 @@ use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::time::{Duration, Instant};
 
+use dashmap::DashMap;
 use fred::prelude::*;
 use fred::types::{Scanner as _, DEFAULT_JITTER_MS};
 use futures::TryStreamExt as _;
@@ -13,6 +14,7 @@ pub mod server;
 #[derive(Clone)]
 pub struct DatabaseConnection {
     client: RedisClient,
+    lang_cache: DashMap<NonZeroU64, String>,
 }
 
 #[derive(Clone, Copy)]
@@ -65,14 +67,20 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         }
     }
 
-    // TODO we should set this in a hashmap so this doesn't need async
-    pub async fn server_language(&self) -> RedisResult<String> {
+    // TODO the hashmap should be more ergonomic
+    pub async fn server_language(&self) -> color_eyre::Result<String> {
+        if let Some(lang) = self.lang_cache.get(&self.guild_id) {
+            return Ok(lang.clone())
+        }
         let guild_id = self.guild_id;
-        try_redis(
+        let lang: String = try_redis(
             self.client
                 .get(format!("guilds:{guild_id}:server_language"))
                 .await,
-        )
+        )?;
+
+        self.lang_cache.insert(guild_id, lang.clone());
+        Ok(lang)
     }
 }
 
@@ -108,26 +116,26 @@ impl DatabaseConnection {
         let password = &Config::get()?.redis_password;
         let url = format!("redis://:{password}@redis.discordbots.eqiad1.wikimedia.cloud:6379");
         let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
-        Ok(Self { client })
+        Ok(Self { client, lang_cache: DashMap::new() })
     }
 
     pub async fn prod_tunnelled() -> color_eyre::Result<Self> {
         let password = &Config::get()?.redis_password;
         let url = format!("redis://:{password}@127.0.0.1:16379");
         let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
-        Ok(Self { client })
+        Ok(Self { client, lang_cache: DashMap::new() })
     }
 
     pub async fn prod_vps() -> color_eyre::Result<Self> {
         let password = &Config::get()?.redis_password;
         let url = format!("redis://:{password}@127.0.0.1:6379");
         let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
-        Ok(Self { client })
+        Ok(Self { client, lang_cache: DashMap::new() })
     }
 
     pub async fn dev() -> RedisResult<Self> {
         let client = make_and_init_redis_client(RedisConfig::default()).await?;
-        Ok(Self { client })
+        Ok(Self { client, lang_cache: DashMap::new() })
     }
 
     pub async fn get_child(&self) -> RedisResult<ChildDatabaseConnection> {
@@ -319,14 +327,6 @@ impl DatabaseConnection {
         try_redis(
             self.client
                 .get(format!("guilds:{guild_id}:authenticated_role_id"))
-                .await,
-        )
-    }
-
-    pub async fn server_language(&self, guild_id: u64) -> RedisResult<String> {
-        try_redis(
-            self.client
-                .get(format!("guilds:{guild_id}:server_language"))
                 .await,
         )
     }
