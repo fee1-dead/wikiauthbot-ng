@@ -43,7 +43,7 @@ whois_global_groups = Global groups: {$groupslist}
 
 whois_blocked = **BLOCKED**
 whois_locked = **LOCKED**
-whois_edits = Edits: { NUMBER($edits, useGrouping: true) }
+whois_edits = Edits: {$edits}
 whois_groups = Groups: {$groupslist}
 whois_overflow = Only up to 10 max listed. Click their name at the top to see all info.
 whois_no_block_reason = <!-- No reason given -->
@@ -52,7 +52,7 @@ whois_no_block_reason = <!-- No reason given -->
 whois = Discord: {$mention}
     Registered: {$registration}
     Home: {$home}
-    {$global_groups}Total edits: { NUMBER($edits, useGrouping: true) }
+    {$global_groups}Total edits: {$edits}
 
 # These are currently unused for now.
 server_auth_success = Success! Authorization information sent to the bot :)
