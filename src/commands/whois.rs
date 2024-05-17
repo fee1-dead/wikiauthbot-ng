@@ -133,10 +133,11 @@ impl WhoisInfo {
                 ));
                 blocked = true;
             }
+            // TODO don't use Cow in next update
             let reason = if block.reason.is_empty() {
-                &*db.get_message("whois_no_block_reason").await?
+                db.get_message("whois_no_block_reason").await?
             } else {
-                &block.reason
+                block.reason.into()
             };
             mb.push_str(&format!("**{wiki}** ({})\n", block.expiry));
             mb.push_str(&format!("__{reason}__\n"));
