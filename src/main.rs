@@ -55,8 +55,9 @@ async fn event_handler(
             let db = u.db.in_guild(guild);
             trace!(?guild, "new member");
             if let Some(chan) = db.welcome_channel_id(guild.get()).await? {
-                let mention = new_member.mention();
-                let msg = if let Ok(Some(whois)) =
+                let mention = new_member.mention().to_string();
+                
+                let content = if let Ok(Some(whois)) =
                     db.whois(new_member.user.id.get()).await
                 {
                     if let Ok(authenticated_role) = db.authenticated_role_id(guild.get()).await {
@@ -66,18 +67,18 @@ async fn event_handler(
                         Ok(whois) => {
                             let name = whois.name;
                             let user_link = db.user_link(&name).await?;
-                            CreateMessage::new().content(format!("Welcome {mention}! You've already authenticated as [{name}](<{user_link}>), so you don't need to authenticate again."))
+                            wikiauthbot_db::msg!(db, "welcome_has_auth", mention = mention, name = name, user_link = user_link)?
                         }
                         _ => {
                             tracing::error!("failed to fetch whois!");
-                            CreateMessage::new().content(format!("Welcome {mention}! You've already authenticated (error while trying to fetch info), so you don't need to authenticate again."))
+                            wikiauthbot_db::msg!(db, "welcome_has_auth_failed", mention = mention)?
                         }
                     }
                     
                 } else {
-                    CreateMessage::new()
-                    .content(format!("Welcome {mention}! If you would like to authenticate (validate) your Wikimedia account, please type </auth:1221128504410898571>"))
+                    wikiauthbot_db::msg!(db, "welcome", mention = mention)?
                 };
+                let msg = CreateMessage::new().content(content);
                 msg.reactions(['👋'])
                     .execute(ctx, (chan.into(), Some(guild)))
                     .await?;

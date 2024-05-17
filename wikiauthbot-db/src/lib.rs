@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::time::{Duration, Instant};
 
 use fred::prelude::*;
-use fred::types::{KeyspaceEvent, Scanner as _, DEFAULT_JITTER_MS};
+use fred::types::{Scanner as _, DEFAULT_JITTER_MS};
 use futures::TryStreamExt as _;
 use wikiauthbot_common::Config;
 
@@ -21,11 +21,20 @@ pub struct DatabaseConnectionInGuild<'a> {
     guild_id: NonZeroU64,
 }
 
+#[macro_export]
+macro_rules! msg {
+    ($db:expr, $($rest:tt)+) => {
+        {
+            $db.server_language().await.map_err(|e| e.into()).and_then(|lang| ::wikiauthbot_common::msg!(&lang, $($rest)+))
+        }
+    };
+}
+
 impl<'a> DatabaseConnectionInGuild<'a> {
-    pub async fn is_user_authed_in_server(
-        &self,
-        discord_id: u64,
-    ) -> RedisResult<bool> {
+    pub fn guild_id(&self) -> NonZeroU64 {
+        self.guild_id
+    }
+    pub async fn is_user_authed_in_server(&self, discord_id: u64) -> RedisResult<bool> {
         let guild_id = self.guild_id;
         try_redis(
             self.client
@@ -164,14 +173,6 @@ fn try_redis<T>(x: RedisResult<T>) -> RedisResult<T> {
 }
 
 impl DatabaseConnection {
-    // TODO we should abstract this
-    pub fn on_keyspace_event<F>(&self, func: F)
-    where
-        F: Fn(KeyspaceEvent) -> RedisResult<()> + Send + 'static,
-    {
-        self.client.on_keyspace_event(func);
-    }
-
     pub async fn user_is_authed(&self, discord_id: u64) -> RedisResult<bool> {
         try_redis(self.client.exists(format!("auth:{discord_id}")).await)
     }
@@ -210,7 +211,8 @@ impl DatabaseConnection {
     // this is not clean since revauth2 is not deleted.
     pub async fn debug_deauth(&self, user_id: u64, guild_id: u64) -> RedisResult<()> {
         let txn = self.client.pipeline();
-        txn.srem(format!("guilds:{guild_id}:authed"), user_id).await?;
+        txn.srem(format!("guilds:{guild_id}:authed"), user_id)
+            .await?;
         txn.del(format!("auth:{user_id}")).await?;
         txn.all().await?;
         Ok(())

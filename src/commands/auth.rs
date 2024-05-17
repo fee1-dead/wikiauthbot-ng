@@ -4,14 +4,61 @@ use color_eyre::eyre::bail;
 use poise::CreateReply;
 use serde_json::Value;
 use serenity::all::{
-    Builder, ButtonStyle, CreateActionRow, CreateButton, CreateInteractionResponse,
+    Builder, ButtonStyle, ComponentInteractionCollector, CreateActionRow, CreateButton, CreateInteractionResponse, UserId
 };
 use serenity::builder::{CreateEmbed, CreateEmbedFooter, EditInteractionResponse};
 use tokio::spawn;
 use tokio::time::timeout;
 use wikiauthbot_common::{AuthRequest, SuccessfulAuth};
+use wikiauthbot_db::{msg, DatabaseConnectionInGuild};
 
 use crate::{Context, Result};
+
+pub async fn handle_interactions(
+    ctx: serenity::client::Context,
+    discord_user_id: UserId,
+    db: DatabaseConnectionInGuild<'_>,
+    rxns: ComponentInteractionCollector,
+    wikimedia_id: u32,
+    username: String,
+    cont_token: String,
+) -> color_eyre::Result<()> {
+    if let Ok(Some(interaction)) = timeout(Duration::from_secs(120), rxns.next()).await {
+        match &*interaction.data.custom_id {
+            "yes" => {
+                db
+                    .send_successful_req(SuccessfulAuth {
+                        discord_user_id: discord_user_id.into(),
+                        guild_id: db.guild_id(),
+                        central_user_id: wikimedia_id,
+                        username,
+                        brand_new: false,
+                    })
+                    .await?;
+               interaction
+                    .create_response(&ctx, CreateInteractionResponse::Acknowledge)
+                    .await?;
+            }
+            "no" => {
+                let newmsg = EditInteractionResponse::new()
+                    .content(msg!(db, "authreq_canceled")?)
+                    .components(vec![]);
+                newmsg.execute(&ctx, &cont_token).await?;
+                interaction
+                    .create_response(&ctx, CreateInteractionResponse::Acknowledge)
+                    .await?;
+                return Ok(());
+            }
+            id => tracing::error!("invalid custom id: {id}"),
+        }
+    }
+
+    let newmsg = EditInteractionResponse::new()
+        .content(db.get_message("authreq_expired").await?)
+        .components(vec![]);
+    newmsg.execute(&ctx, &cont_token).await?;
+    Ok(())
+}
 
 /// Authenticate to your Wikimedia account
 #[poise::command(slash_command, guild_only = true)]
@@ -23,13 +70,16 @@ pub async fn auth(ctx: Context<'_>) -> Result {
     ctx.defer_ephemeral().await?;
     let user_id = ctx.author().id;
     let guild_id = ctx.guild_id().unwrap();
+    let db2 = db.clone();
+    let db = db.in_guild(guild_id);
 
     if db
-        .is_user_authed_in_server(user_id.get(), guild_id.get())
+        .is_user_authed_in_server(user_id.get())
         .await?
     {
-        ctx.reply("You are already authenticated to this server. No need to authenticate again.")
+        ctx.reply(db.get_message("auth_exists_in_server").await?)
             .await?;
+        // TODO eliminate guild_id usage
         if let Ok(authenticated_role) = db.authenticated_role_id(guild_id.get()).await {
             ctx.author_member().await.unwrap().add_role(ctx, authenticated_role).await?;
         }
@@ -58,73 +108,29 @@ pub async fn auth(ctx: Context<'_>) -> Result {
             [("target", &name)],
         )
         .unwrap();
-        let reply = CreateReply::default().content(format!("You are already identified as [{name}]({url}). Would you like to authenticate this to the server?"))
+        let msg = msg!(db, "auth_to_server", name = &name, url = url.to_string())?;
+        let yes = msg!(db, "yes")?;
+        let no = msg!(db, "no")?;
+        let reply = CreateReply::default().content(msg)
             .components(vec![
                 CreateActionRow::Buttons(vec![
-                    CreateButton::new("yes").label("Yes").style(ButtonStyle::Success), CreateButton::new("no").label("No").style(ButtonStyle::Danger)
+                    CreateButton::new("yes").label(yes).style(ButtonStyle::Success), CreateButton::new("no").label(no).style(ButtonStyle::Danger)
                 ]
             )]);
         let msg = ctx.send(reply).await?.into_message().await?;
         let ctx = ctx.serenity_context().clone();
         let rxns = msg.await_component_interaction(&ctx);
-        let db2 = db.clone();
         spawn(async move {
-            if let Ok(Some(x)) = timeout(Duration::from_secs(120), rxns.next()).await {
-                match &*x.data.custom_id {
-                    "yes" => {
-                        if let Err(e) = db2
-                            .send_successful_req(SuccessfulAuth {
-                                discord_user_id: user_id.into(),
-                                guild_id: guild_id.into(),
-                                central_user_id: wikimedia_id,
-                                username: name,
-                                brand_new: false,
-                            })
-                            .await
-                        {
-                            tracing::error!(%e, "couldn't send successful auth");
-                            return;
-                        }
-                        if let Err(e) = x
-                            .create_response(&ctx, CreateInteractionResponse::Acknowledge)
-                            .await
-                        {
-                            tracing::error!(%e, "couldn't respond");
-                        }
-                        return;
-                    }
-                    "no" => {
-                        let newmsg = EditInteractionResponse::new()
-                            .content("Authentication canceled.")
-                            .components(vec![]);
-                        if let Err(e) = newmsg.execute(&ctx, &cont_token).await {
-                            tracing::error!(%e, "couldn't edit");
-                            return;
-                        }
-                        if let Err(e) = x
-                            .create_response(&ctx, CreateInteractionResponse::Acknowledge)
-                            .await
-                        {
-                            tracing::error!(%e, "couldn't respond");
-                        }
-                        return;
-                    }
-                    id => tracing::error!("invalid custom id: {id}"),
-                }
-            }
-
-            let newmsg = EditInteractionResponse::new()
-                .content("Authentication expired.")
-                .components(vec![]);
-            if let Err(e) = newmsg.execute(&ctx, &cont_token).await {
-                tracing::error!(%e, "couldn't edit");
-                return;
+            let db2 = db2.in_guild(guild_id);
+            if let Err(e) = handle_interactions(ctx, user_id, db2.in_guild(guild_id), rxns, wikimedia_id, name, cont_token).await {
+                tracing::error!(?e, "Error occured while handling interactions.");
             }
         });
 
         return Ok(()); // TODO move this somewhere else
     }
 
+    // TODO implement expiry message (for people that actually have not authed) here.
     let authreq = AuthRequest::new(user_id.into(), guild_id.into());
     let state = authreq.state();
     db.record_auth_req(&state, user_id.into(), guild_id.into())
@@ -133,9 +139,18 @@ pub async fn auth(ctx: Context<'_>) -> Result {
     let client_id = &*config.oauth_consumer_key;
     let url = format!("https://meta.wikimedia.org/w/rest.php/oauth2/authorize?response_type=code&client_id={client_id}&state={state}");
 
-    ctx.send(CreateReply::default().embed(CreateEmbed::new().color(0xCCCCCC).title("WikiAuthBot").description(format!(
-        "Please use the following link to authenticate to your Wikimedia account: [Authenticate]({url})"
-    )).thumbnail("https://cdn.discordapp.com/emojis/546848856650809344.png").footer(CreateEmbedFooter::new("This link will be valid for 10 minutes.")))).await?;
+    let auth = msg!(db, "auth", url = url)?;
+    ctx.send(
+        CreateReply::default()
+            .embed(
+                CreateEmbed::new()
+                    .color(0xCCCCCC)
+                    .title(db.get_message("bot").await?)
+                    .description(auth)
+                    .thumbnail("https://cdn.discordapp.com/emojis/546848856650809344.png")
+                    .footer(CreateEmbedFooter::new("This link will be valid for 10 minutes."))
+            )
+    ).await?;
 
     Ok(())
 }

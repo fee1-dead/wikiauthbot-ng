@@ -2,10 +2,9 @@ use std::cmp::Reverse;
 
 use color_eyre::eyre::{Context as _, OptionExt};
 use poise::CreateReply;
-use serenity::all::UserId;
+use serenity::all::{Mention, UserId};
 use serenity::builder::{CreateEmbed, CreateEmbedFooter};
-use serenity::utils::MessageBuilder;
-use wikiauthbot_db::WhoisResult;
+use wikiauthbot_db::{msg, DatabaseConnectionInGuild, WhoisResult};
 
 use crate::{Context, Result};
 
@@ -75,72 +74,76 @@ pub struct WhoisInfo {
 }
 
 impl WhoisInfo {
-    pub fn create_embed(mut self, discord_user_id: UserId, user_link: &str) -> Result<CreateEmbed> {
-        let mut mb = MessageBuilder::new();
-        mb.push("Discord: ")
-            .mention(&discord_user_id)
-            .push("\n")
-            .push("Registered: ")
-            .push_line(
-                self.registration
-                    .split_once("T")
-                    .ok_or_eyre("invalid date")?
-                    .0,
-            )
-            .push("Home: ")
-            .push_line(self.home);
-        if !self.groups.is_empty() {
-            mb.push("Global groups: ").push_line(self.groups.join(", "));
-        }
+    pub async fn create_embed(mut self, discord_user_id: UserId, db: DatabaseConnectionInGuild<'_>) -> Result<CreateEmbed> {
+        let mention = Mention::User(discord_user_id).to_string();
+        let registration = self.registration
+            .split_once("T")
+            .ok_or_eyre("invalid date")?
+            .0;
+        
+        let global_groups = if !self.groups.is_empty() {
+            let mut msg = msg!(db, "whois_global_groups", groupslist = self.groups.join(", "))?;
+            msg.to_mut().push('\n');
+            msg
+        } else {
+            "".into()
+        };
+
+        let mut edits = 0;
 
         // TODO introduce if servers want to remove users who are indeffed
         // let mut indeffed = false;
-
-        let mut edits = 0;
         self.merged.sort_by_key(|w| Reverse(w.editcount));
-        let (fields, blocks): (Vec<_>, Vec<_>) = self
-            .merged
-            .into_iter()
-            .filter(|w| w.editcount > 0)
-            .map(|wiki| {
-                let mut content = format!("Edits: {}", wiki.editcount);
-                let mut inline = true;
-                edits += wiki.editcount;
-                if !wiki.groups.is_empty() {
-                    content.push_str("\nGroups: ");
-                    content.push_str(&wiki.groups.join(", "));
-                    inline = false;
-                }
+        let mut fields = Vec::new();
+        let mut blocks = Vec::new();
+        for wiki in self.merged.into_iter().filter(|w| w.editcount > 0) {
+            let mut content = msg!(db, "whois_edits", edits = wiki.editcount)?;
+            let mut inline = true;
+            edits += wiki.editcount;
+            if !wiki.groups.is_empty() {
+                let content = content.to_mut();
+                content.push('\n');
+                content.push_str(&msg!(db, "whois_groups", groupslist = wiki.groups.join(", "))?);
+                inline = false;
+            }
 
-                (
-                    (wiki.wiki.clone(), content, inline),
-                    wiki.blocked.zip(Some(wiki.wiki)),
-                )
-            })
-            .unzip();
+            fields.push((wiki.wiki.clone(), content, inline));
+            blocks.push(wiki.blocked.zip(Some(wiki.wiki)));
+        }
 
-        mb.push("Total edits: ").push_line(edits.to_string());
+        let mut whois = msg!(
+            db, "whois",
+            mention = mention,
+            registration = registration,
+            home = self.home,
+            global_groups = global_groups,
+            edits = edits,
+        )?;
+
 
         let mut blocked = false;
+        let btext = msg!(db, "whois_blocked")?;
+        let ltext = msg!(db, "whois_locked")?;
+        let mb = whois.to_mut();
         for (block, wiki) in blocks.into_iter().flatten() {
             if !blocked {
-                mb.push_line(format!(
-                    "\n\n<:declined:359850777453264906> **BLOCKED**{}",
-                    if self.locked { " ***LOCKED***" } else { "" }
+                mb.push_str(&format!(
+                    "\n\n<:declined:359850777453264906> {btext}{}\n",
+                    if self.locked { format!(" {ltext}") } else { String::new() }
                 ));
                 blocked = true;
             }
             let reason = if block.reason.is_empty() {
-                "<!-- No reason given -->"
+                &*db.get_message("whois_no_block_reason").await?
             } else {
                 &block.reason
             };
-            mb.push_line(format!("**{wiki}** ({})", block.expiry));
-            mb.push_line(format!("__{reason}__"));
+            mb.push_str(&format!("**{wiki}** ({})\n", block.expiry));
+            mb.push_str(&format!("__{reason}__\n"));
         }
 
         if !blocked && self.locked {
-            mb.push_line("\n\n<:declined:359850777453264906> ***LOCKED***");
+            mb.push_str(&format!("\n\n<:declined:359850777453264906> {ltext}\n"));
         }
 
         let date =
@@ -159,12 +162,12 @@ impl WhoisInfo {
 
         let mut fields = fields.into_iter();
 
-        let url = user_link;
+        let user_link = db.user_link(&self.name).await?;
         let mut embed = CreateEmbed::new()
             .colour(0xCCCCCC)
             .title(self.name)
-            .description(mb.0)
-            .url(url)
+            .description(whois)
+            .url(user_link)
             .thumbnail(format!(
                 "https://upload.wikimedia.org/wikipedia/commons/{medal}"
             ))
@@ -172,7 +175,7 @@ impl WhoisInfo {
 
         if fields.next().is_some() {
             embed = embed.footer(CreateEmbedFooter::new(
-                "Only up to 10 max listed. Click their name at the top to see all info.",
+                db.get_message("whois_overflow").await?
             ));
         }
 
@@ -218,13 +221,10 @@ pub async fn whois(
 
     let whois: WhoisInfo = fetch_whois(client, wikimedia_id).await?;
 
-    // TODO this should be back in create_embed
-    let user_link = db.user_link(&whois.name).await?;
-
     ctx.send(
         CreateReply::default()
             .ephemeral(true)
-            .embed(whois.create_embed(user_id, &user_link)?),
+            .embed(whois.create_embed(user_id, db).await?),
     )
     .await?;
 

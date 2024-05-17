@@ -6,6 +6,7 @@ use serenity::all::{
 };
 use tokio::spawn;
 use tracing::error;
+use wikiauthbot_db::msg;
 
 use crate::Data;
 
@@ -13,25 +14,7 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
     let parent_db = u.db.clone();
     let db = parent_db.get_child().await?;
     let http = ctx.http.clone();
-    let http2 = ctx.http.clone();
 
-    parent_db.on_keyspace_event(move |event| {
-        let key = event.key.as_str_lossy();
-        if let Some(token) = key.strip_prefix("auth_message:expiry:") {
-            // FIXME this is actually hard to translate, we need the guild info
-            let edit = EditInteractionResponse::new()
-                .content("Authentication request expired.")
-                .embeds(vec![]);
-            let http2 = http2.clone();
-            let token = token.to_owned();
-            tokio::spawn(async move {
-                if let Err(e) = edit.execute(http2, &token).await {
-                    tracing::error!("error trying to edit original response: {e}");
-                }
-            });
-        }
-        Ok(())
-    });
     spawn(async move {
         loop {
             let successful_auth =
@@ -72,8 +55,10 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                 continue;
             };
 
+            let msg = parent_db.get_message("authreq_successful").await.unwrap_or("Authentication successful".into()); 
+
             let newmsg = EditInteractionResponse::new()
-                .content("Authentication successful.")
+                .content(msg)
                 .embeds(vec![])
                 .components(vec![]);
             if let Err(e) = newmsg.execute(&http, &cont_token).await {
@@ -92,13 +77,15 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                 continue;
             };
 
+            let auditlog = msg!(parent_db, "auditlog_successful_auth", wmf_id = wmf_id).unwrap_or_else(|_| format!("authenticated as wikimedia user {wmf_id}").into());
+
             if authenticated_role_id != 0 {
                 if let Err(e) = http
                     .add_member_role(
                         guild,
                         discord_user_id,
                         RoleId::from(authenticated_role_id),
-                        Some(&format!("authenticated as wikimedia user {wmf_id}")),
+                        Some(&auditlog),
                     )
                     .await
                 {
@@ -109,15 +96,18 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
             }
 
             if auth_log_channel_id != 0 {
-                let mention = Mention::User(discord_user_id);
+                let mention = Mention::User(discord_user_id).to_string();
                 let Ok(user_link) = parent_db.user_link(&username).await else {
                     tracing::error!("couldn't get user link");
                     continue;
                 };
+                // TODO: ideally we shouldn't need to fallback
+                let authlog = msg!(parent_db, "authlog", mention = &mention, username = &username, user_link = &*user_link, wmf_id = wmf_id);
+                let authlog = authlog.unwrap_or_else(|_| format!(
+                    "{mention} authenticated as [User:{username}](<{user_link}>) (id {wmf_id})"
+                ).into());
                 if let Err(e) = CreateMessage::new()
-                    .content(format!(
-                        "{mention} authenticated as [User:{username}](<{user_link}>) (id {wmf_id})"
-                    ))
+                    .content(authlog)
                     .execute(&http, (auth_log_channel_id.into(), Some(guild)))
                     .await
                 {

@@ -1,5 +1,6 @@
 use serde_json::Value;
 use serenity::all::Mention;
+use wikiauthbot_db::msg;
 
 use crate::{Context, Result};
 
@@ -39,28 +40,33 @@ pub async fn revwhois(
     // TODO rm this .data()
     let results = ctx.data().db.revwhois(id as u32, guild_id.get()).await?;
 
-    let userlink = format!("[{user}](<{}>)", db.user_link(&user).await?);
+    let user_link = db.user_link(&user).await?;
     match &results[..] {
         [] => {
-            ctx.reply(format!("{userlink} has not authenticated to this server."))
+            ctx.reply(msg!(db, "revwhois_no_auth", name = user, user_link = user_link)?)
                 .await?
         }
         &[id] => {
-            ctx.reply(format!(
-                "{userlink} is authenticated to {}",
-                Mention::User(id.into())
-            ))
+            ctx.reply(msg!(
+                db, "revwhois_one",
+                name = user,
+                user_link = user_link,
+                mention = Mention::User(id.into()).to_string(),
+            )?)
             .await?
         }
         [ids @ ..] => {
-            let s = ids
+            let mentions = ids
                 .iter()
                 .copied()
                 .map(|id| format!("\n* {}", Mention::User(id.into())))
                 .collect::<String>();
-            ctx.reply(format!(
-                "{userlink} is authenticated to the following accounts:{s}"
-            ))
+            ctx.reply(msg!(
+                db, "revwhois_multiple",
+                name = user,
+                user_link = user_link,
+                mentions = mentions,
+            )?)
             .await?
         }
     };

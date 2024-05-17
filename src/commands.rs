@@ -91,8 +91,10 @@ pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
 #[poise::command(prefix_command, dm_only, hide_in_help)]
 pub async fn unauthed_list(ctx: Context<'_>, guild_id: GuildId) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
-    if !is_bot_owner {
-        ctx.reply("Must be a bot owner to use this command.").await?;
+    let is_server_admin = guild_id.member(ctx, ctx.author().id).await?.permissions(ctx)?.administrator();
+
+    if !is_bot_owner && !is_server_admin {
+        ctx.reply("Must be a bot owner or server admin to use this command.").await?;
         return Ok(());
     }
     let db = &ctx.data().db;
