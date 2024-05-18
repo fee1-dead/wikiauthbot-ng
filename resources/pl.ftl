@@ -11,7 +11,7 @@ auth_footer = Ten link będzie ważny przez 5 minut.
 authreq_canceled = Anulowano uwierzytelnianie.
 authreq_expired = Prośba o uwierzytelnienie wygasła.
 
-authlog = {$mention} uwierzytelniony(-a) jako [User:{$username}](<{$user_link}>) (id {$wmf_id})
+authlog = {$mention} uwierzytelniony(-a) jako [{$username}](<{$user_link}>) (id {$wmf_id})
 
 # The entry in the audit log recording why the authenticated role was granted.
 auditlog_successful_auth = uwierzytelniony(-a) jako użytkownik Wikimedia {$wmf_id}
