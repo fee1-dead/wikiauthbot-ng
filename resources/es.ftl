@@ -37,7 +37,7 @@ welcome_has_auth = ¡Bienvenido, {$mention}! Estás autenticado como [{$name}](<
 
 welcome_has_auth_failed = ¡Bienvenido, {$mention}! Estás autenticado (oopsie, no tengo información al respecto), no necesitas autenticarte de nuevo.
 
-welcome = ¡Bienvenido, {$mention}! Si deseas autenticar (validar) tu identidad como integrante del movimiento Wikimedia por favor usa: </auth:1221128504410898571>
+welcome = ¡Bienvenido, {$mention}! Si deseas autenticar (validar) tu identidad como integrante del movimiento Wikimedia por favor usa: </auth:1241068923730919464>
 
 whois_global_groups = Grupos globales: {$groupslist}
 
