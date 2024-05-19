@@ -37,7 +37,7 @@ welcome_has_auth = Witamy {$mention}! Jesteś już uwierzytelniony(-a) jako [{$n
 
 welcome_has_auth_failed = Witamy {$mention}! Jesteś już uwierzytelniony(-a) i nie musisz potwierdzać swojego konta ponownie (wystąpił błąd przy pobieraniu nazwy Twojego konta Wikimedia).
 
-welcome = Witamy {$mention}! Jeśli chcesz uwierzytelnić (powiązać) swoje konto Wikimedia, wpisz </auth:1221128504410898571>
+welcome = Witamy {$mention}! Jeśli chcesz uwierzytelnić (powiązać) swoje konto Wikimedia, wpisz </auth:1241068923730919464>
 
 whois_global_groups = Grupy globalne: {$groupslist}
 
