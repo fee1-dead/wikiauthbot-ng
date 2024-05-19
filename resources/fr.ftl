@@ -1,4 +1,4 @@
-auth = Veuillez utiliser le lien suivant pour vous authentifier sur votre compte Wikimedia : [Authenticate]({$url})
+auth = Veuillez utiliser le lien suivant pour vous authentifier sur votre compte Wikimedia : [Authentifier]({$url})
 
 auth_exists_in_server = Vous êtes déjà authentifié·ée sur ce serveur. Pas besoin de s'authentifier à nouveau.
 
