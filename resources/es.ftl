@@ -1,9 +1,9 @@
-auth = Por favor usa el siguiente enlace para autenticarte en tu cuenta Wikimedia: [Authenticate]({$url})
+auth = Por favor usa el siguiente enlace para autenticarte en tu cuenta Wikimedia: [Autenticación]({$url})
 
 auth_exists_in_server = Actualmente estás autenticado en este servidor. No es necesario autenticarse de nuevo.
 
 auth_to_server = Estás identificado como [{$name}](<{$url}>). ¿Quieres autenticarte de nuevo en este servidor?
-yes = sí
+yes = Sí
 no = No
 
 auth_footer = Este enlace tendrá validez por 5 minutos.
@@ -55,5 +55,5 @@ whois = Discord: {$mention}
     {$global_groups}Ediciones totales: {$edits}
 
 # These are currently unused for now.
-server_auth_success = Success! Authorization information sent to the bot :)
-server_auth_expired = Auth request was expired or invalid.
+server_auth_success = ¡Éxito! Información relacionada a la autenticación ha sido enviada al bot :)
+server_auth_expired = La solicitud de autenticación está expirada o es inválida.
