@@ -6,7 +6,7 @@ auth_to_server = Vous êtes déjà identifié·ée comme [{$name}](<{$url}>). So
 yes = Oui
 no = Non
 
-auth_footer = Ce lien sera valide pendant 10 minutes.
+auth_footer = Ce lien sera valide pendant 5 minutes.
 
 authreq_canceled = Authentification annulée.
 
