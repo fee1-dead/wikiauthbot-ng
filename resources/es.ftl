@@ -42,11 +42,11 @@ welcome = ¡Bienvenido, {$mention}! Si deseas autenticar (validar) tu identidad 
 whois_global_groups = Grupos globales: {$groupslist}
 
 whois_blocked = **BLOQUEADO**
-whois_locked = **LOCKED**
+whois_locked = **DESHABILITADO**
 whois_edits = Ediciones: {$edits}
 whois_groups = Grupos: {$groupslist}
 whois_overflow = Limitado a 10 proyectos. Da clic en su nombre al principio para observar toda la información.
-whois_no_block_reason = <!-- No reason given -->
+whois_no_block_reason = <!-- No se ha provisto razón del bloqueo -->
 
 # If you need a different date format other than YYYY-MM-DD, let me know.
 whois = Discord: {$mention}
