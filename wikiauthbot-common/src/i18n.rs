@@ -21,6 +21,21 @@ const LOCALES: &'static [LocaleInfo] = &[
         lang: langid!("en-US"),
         file: include_str!("../../resources/en.ftl"),
     },
+    LocaleInfo {
+        name: "es",
+        lang: langid!("es"),
+        file: include_str!("../../resources/es.ftl"),
+    },
+    LocaleInfo {
+        name: "fr",
+        lang: langid!("fr"),
+        file: include_str!("../../resources/fr.ftl"),
+    },
+    LocaleInfo {
+        name: "pl",
+        lang: langid!("pl"),
+        file: include_str!("../../resources/pl.ftl"),
+    },
 ];
 
 fn get_locales_map() -> &'static HashMap<&'static str, FluentBundle<FluentResource>> {
@@ -37,6 +52,10 @@ fn get_locales_map() -> &'static HashMap<&'static str, FluentBundle<FluentResour
         }
         map
     })
+}
+
+pub fn lang_is_supported(lang: &str) -> bool {
+    get_locales_map().contains_key(lang)
 }
 
 fn get_message_inner(lang: &str, id: &str, args: Option<&FluentArgs>) -> color_eyre::Result<Cow<'static, str>> {
@@ -87,6 +106,11 @@ mod tests {
         assert_eq!(
             "No user found. Either the user is not in this server or is unauthenticated.",
             super::get_message("en", "whois_no_user_found").unwrap(),
+        );
+
+        assert_eq!(
+            "Usuario no encontrado. Puede deberse a que el usuario no esté en el servidor o esté sin autenticar.",
+            super::get_message("es", "whois_no_user_found").unwrap(),
         );
     }
 

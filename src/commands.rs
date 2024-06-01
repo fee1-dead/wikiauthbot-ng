@@ -198,9 +198,8 @@ pub async fn setup_server(
         return Ok(());
     }
 
-    if server_language != "en" {
-        // TODO
-        ctx.reply("F: non-English languages are not yet implemented")
+    if !wikiauthbot_common::i18n::lang_is_supported(&server_language) {
+        ctx.reply("F: The language you have specified is not supported.")
             .await?;
         return Ok(());
     }
