@@ -36,6 +36,11 @@ const LOCALES: &'static [LocaleInfo] = &[
         lang: langid!("pl"),
         file: include_str!("../../resources/pl.ftl"),
     },
+    LocaleInfo {
+        name: "zh-hans",
+        lang: langid!("zh-hans"),
+        file: include_str!("../../resources/zh-hans.ftl"),
+    },
 ];
 
 fn get_locales_map() -> &'static HashMap<&'static str, FluentBundle<FluentResource>> {
