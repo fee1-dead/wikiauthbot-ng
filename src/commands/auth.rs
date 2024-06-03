@@ -35,9 +35,10 @@ pub async fn handle_interactions(
                         brand_new: false,
                     })
                     .await?;
-               interaction
+                interaction
                     .create_response(&ctx, CreateInteractionResponse::Acknowledge)
                     .await?;
+                return Ok(())
             }
             "no" => {
                 let newmsg = EditInteractionResponse::new()
