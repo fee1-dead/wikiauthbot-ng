@@ -7,6 +7,8 @@ use dashmap::DashMap;
 use fred::prelude::*;
 use fred::types::{Scanner as _, DEFAULT_JITTER_MS};
 use futures::TryStreamExt as _;
+use sqlx::sqlite::SqliteRow;
+use sqlx::{Row, SqlitePool};
 use wikiauthbot_common::Config;
 
 pub mod server;
@@ -14,6 +16,7 @@ pub mod server;
 #[derive(Clone)]
 pub struct DatabaseConnection {
     client: RedisClient,
+    sqlite: SqlitePool,
     lang_cache: DashMap<NonZeroU64, String>,
 }
 
@@ -36,14 +39,18 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     pub fn guild_id(&self) -> NonZeroU64 {
         self.guild_id
     }
-    pub async fn is_user_authed_in_server(&self, discord_id: u64) -> RedisResult<bool> {
-        let guild_id = self.guild_id;
-        try_redis(
-            self.client
-                .sismember(format!("guilds:{guild_id}:authed"), discord_id)
-                .await,
+
+    pub async fn is_user_authed_in_server(&self, discord_id: u64) -> color_eyre::Result<bool> {
+        Ok(
+            sqlx::query("select exists(select 1 from auths where user_id = $1 and guild_id = $2)")
+                .bind(discord_id as i64)
+                .bind(self.guild_id.get() as i64)
+                .fetch_one(&self.sqlite)
+                .await?
+                .try_get(0)?,
         )
     }
+
     pub async fn get_message(&self, key: &str) -> color_eyre::Result<Cow<'static, str>> {
         let lang = self.server_language().await?;
         wikiauthbot_common::i18n::get_message(&lang, key)
@@ -55,22 +62,45 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         wikiauthbot_common::msg!(&lang, "user_link", normalized_name = normalized_name)
     }
 
-    pub async fn whois(&self, discord_id: u64) -> RedisResult<Option<WhoisResult>> {
-        if !try_redis(self.is_user_authed_in_server(discord_id).await)? {
-            Ok(None)
-        } else {
-            try_redis(
-                self.get_wikimedia_id(discord_id)
-                    .await
-                    .map(|user| user.map(|wikimedia_id| WhoisResult { wikimedia_id })),
-            )
-        }
+    pub async fn whois(&self, discord_id: u64) -> color_eyre::Result<Option<WhoisResult>> {
+        let value = sqlx::query(
+            r"
+            select users.wikimedia_id from auths
+                where auths.user_id = $1
+                    and auths.guild_id = $2
+                inner join users on users.discord_id = auths.user_id
+        ",
+        )
+        .bind(discord_id as i64)
+        .bind(self.guild_id.get() as i64)
+        .fetch_optional(&self.sqlite)
+        .await?
+        .map(|row| WhoisResult {
+            wikimedia_id: row.get(0),
+        });
+
+        Ok(value)
+    }
+
+    pub async fn revwhois(&self, wikimedia_id: u32) -> color_eyre::Result<Vec<u64>> {
+        let values = sqlx::query("
+            select users.discord_id from users
+                where users.wikimedia_id = $1
+                inner join auths on users.discord_id = auths.discord_id
+                where auths.guild_id = $2
+        ")
+            .bind(wikimedia_id)
+            .bind(self.guild_id.get() as i64)
+            .map(|x: SqliteRow| x.get::<i64, _>(0) as u64)
+            .fetch_all(&self.sqlite)
+            .await?;
+        Ok(values)
     }
 
     // TODO the hashmap should be more ergonomic
     pub async fn server_language(&self) -> color_eyre::Result<String> {
         if let Some(lang) = self.lang_cache.get(&self.guild_id) {
-            return Ok(lang.clone())
+            return Ok(lang.clone());
         }
         let guild_id = self.guild_id;
         let lang: String = try_redis(
@@ -116,26 +146,41 @@ impl DatabaseConnection {
         let password = &Config::get()?.redis_password;
         let url = format!("redis://:{password}@redis.discordbots.eqiad1.wikimedia.cloud:6379");
         let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
-        Ok(Self { client, lang_cache: DashMap::new() })
+        let sqlite = SqlitePool::connect("sqlite:wikiauthbot-prod.db").await?;
+        Ok(Self {
+            client,
+            sqlite,
+            lang_cache: DashMap::new(),
+        })
     }
 
-    pub async fn prod_tunnelled() -> color_eyre::Result<Self> {
+    /* pub async fn prod_tunnelled() -> color_eyre::Result<Self> {
         let password = &Config::get()?.redis_password;
         let url = format!("redis://:{password}@127.0.0.1:16379");
         let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
         Ok(Self { client, lang_cache: DashMap::new() })
-    }
+    } */
 
     pub async fn prod_vps() -> color_eyre::Result<Self> {
         let password = &Config::get()?.redis_password;
         let url = format!("redis://:{password}@127.0.0.1:6379");
         let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
-        Ok(Self { client, lang_cache: DashMap::new() })
+        let sqlite = SqlitePool::connect("sqlite:wikiauthbot-prod.db").await?;
+        Ok(Self {
+            client,
+            sqlite,
+            lang_cache: DashMap::new(),
+        })
     }
 
-    pub async fn dev() -> RedisResult<Self> {
+    pub async fn dev() -> color_eyre::Result<Self> {
         let client = make_and_init_redis_client(RedisConfig::default()).await?;
-        Ok(Self { client, lang_cache: DashMap::new() })
+        let sqlite = SqlitePool::connect("sqlite:wikiauthbot-prod.db").await?;
+        Ok(Self {
+            client,
+            sqlite,
+            lang_cache: DashMap::new(),
+        })
     }
 
     pub async fn get_child(&self) -> RedisResult<ChildDatabaseConnection> {
@@ -144,9 +189,11 @@ impl DatabaseConnection {
         Ok(ChildDatabaseConnection { client })
     }
 
-    pub async fn ping(&self) -> RedisResult<Duration> {
+    pub async fn ping(&self) -> color_eyre::Result<Duration> {
         let instant = Instant::now();
-        let _ = self.client.get("auth:468253584421552139").await?;
+        let _ = sqlx::query("select 1 from auth where user_id = 468253584421552139")
+            .fetch_one(&self.sqlite)
+            .await?;
         Ok(instant.elapsed())
     }
 }
@@ -181,20 +228,20 @@ fn try_redis<T>(x: RedisResult<T>) -> RedisResult<T> {
 }
 
 impl DatabaseConnection {
-    pub async fn user_is_authed(&self, discord_id: u64) -> RedisResult<bool> {
-        try_redis(self.client.exists(format!("auth:{discord_id}")).await)
+    pub async fn user_is_authed(&self, discord_id: u64) -> color_eyre::Result<bool> {
+        let row = sqlx::query("select exists(select 1 from users where discord_id = $1)")
+            .bind(discord_id as i64)
+            .fetch_one(&self.sqlite)
+            .await?;
+        Ok(row.try_get(0)?)
     }
 
-    pub async fn get_wikimedia_id(&self, discord_id: u64) -> RedisResult<Option<u32>> {
-        try_redis(self.client.get(format!("auth:{discord_id}")).await)
-    }
-
-    pub async fn get_discord_ids(&self, wikimedia_id: u32) -> RedisResult<Vec<u64>> {
-        try_redis(
-            self.client
-                .smembers(format!("revauth2:{wikimedia_id}"))
-                .await,
-        )
+    pub async fn get_wikimedia_id(&self, discord_id: u64) -> color_eyre::Result<Option<u32>> {
+        let row = sqlx::query("select wikimedia_id from users where discord_id = $1")
+            .bind(discord_id as i64)
+            .fetch_optional(&self.sqlite)
+            .await?;
+        Ok(row.map(|r| r.get(0)))
     }
 
     pub fn in_guild(&self, guild_id: impl Into<NonZeroU64>) -> DatabaseConnectionInGuild<'_> {
@@ -202,18 +249,6 @@ impl DatabaseConnection {
             inner: self,
             guild_id: guild_id.into(),
         }
-    }
-
-    pub async fn is_user_authed_in_server(
-        &self,
-        discord_id: u64,
-        guild_id: u64,
-    ) -> RedisResult<bool> {
-        try_redis(
-            self.client
-                .sismember(format!("guilds:{guild_id}:authed"), discord_id)
-                .await,
-        )
     }
 
     // this is not clean since revauth2 is not deleted.
@@ -275,35 +310,12 @@ impl DatabaseConnection {
 
     /// Partially, used when we know what the user is authenticated already.
     pub async fn partial_auth(&self, discord_id: u64, guild_id: u64) -> RedisResult<()> {
+        // TODO do a sanity check
         try_redis(
             self.client
                 .sadd(format!("guilds:{guild_id}:authed"), discord_id)
                 .await,
         )
-    }
-
-    // TODO remove these duplicated ones in favor of inguild methods
-    pub async fn whois(&self, discord_id: u64, guild_id: u64) -> RedisResult<Option<WhoisResult>> {
-        if !try_redis(self.is_user_authed_in_server(discord_id, guild_id).await)? {
-            Ok(None)
-        } else {
-            try_redis(
-                self.get_wikimedia_id(discord_id)
-                    .await
-                    .map(|user| user.map(|wikimedia_id| WhoisResult { wikimedia_id })),
-            )
-        }
-    }
-
-    pub async fn revwhois(&self, wikimedia_id: u32, guild_id: u64) -> RedisResult<Vec<u64>> {
-        let discord_ids = try_redis(self.get_discord_ids(wikimedia_id).await)?;
-        let mut filtered = Vec::new();
-        for identity in discord_ids {
-            if try_redis(self.is_user_authed_in_server(identity, guild_id).await)? {
-                filtered.push(identity);
-            }
-        }
-        Ok(filtered)
     }
 
     pub async fn welcome_channel_id(&self, guild_id: u64) -> RedisResult<Option<NonZeroU64>> {

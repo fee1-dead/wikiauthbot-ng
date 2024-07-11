@@ -37,8 +37,8 @@ pub async fn revwhois(
         ctx.reply(db.get_message("revwhois_fail").await?).await?;
         return Ok(());
     };
-    // TODO rm this .data()
-    let results = ctx.data().db.revwhois(id as u32, guild_id.get()).await?;
+
+    let results = db.revwhois(id as u32).await?;
 
     let user_link = db.user_link(&user).await?;
     match &results[..] {

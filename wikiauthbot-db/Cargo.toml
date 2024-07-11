@@ -14,3 +14,4 @@ wikiauthbot-common = { path = "../wikiauthbot-common" }
 tokio.workspace = true
 tracing.workspace = true
 dashmap = "5.5.3"
+sqlx = { version = "0.7.4", features = ["runtime-tokio", "sqlite"] }
