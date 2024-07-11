@@ -3,7 +3,7 @@ members = [
     "wikiauthbot-server",
     "wikiauthbot-db",
     "wikiauthbot-common",
-    "jsonloader",
+#    "jsonloader",
 ]
 
 [workspace.package]

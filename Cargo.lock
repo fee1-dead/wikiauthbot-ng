@@ -1408,20 +1408,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jsonloader"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "dotenvy",
- "mwapi",
- "serde",
- "serde_json",
- "tokio",
- "wikiauthbot-common",
- "wikiauthbot-db",
-]
-
-[[package]]
 name = "language-tags"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

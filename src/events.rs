@@ -37,9 +37,8 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
             let guild: GuildId = NonZeroU64::into(successful_auth.guild_id);
             let parent_db = parent_db.in_guild(guild);
 
-            // TODO replace
             if let Err(e) = parent_db
-                .full_auth(discord_user_id.get(), wmf_id, guild.get())
+                .full_auth(discord_user_id.get(), wmf_id)
                 .await
             {
                 tracing::error!(%e, "failed to insert authenticated!");
@@ -66,13 +65,13 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                 continue;
             }
 
-            let Ok(authenticated_role_id) = parent_db.authenticated_role_id(guild.get()).await
+            let Ok(authenticated_role_id) = parent_db.authenticated_role_id().await
             else {
                 tracing::error!("failed to get information for server: auth role");
                 continue;
             };
 
-            let Ok(auth_log_channel_id) = parent_db.auth_log_channel_id(guild.get()).await else {
+            let Ok(auth_log_channel_id) = parent_db.auth_log_channel_id().await else {
                 tracing::error!("failed to get information for server: auth log channel");
                 continue;
             };

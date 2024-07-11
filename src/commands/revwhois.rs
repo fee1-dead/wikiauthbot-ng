@@ -11,10 +11,6 @@ pub async fn revwhois(
     #[description = "Name of the Wikimedia user"] user: String,
 ) -> Result {
     ctx.defer_ephemeral().await?;
-    let Some(guild_id) = ctx.guild_id() else {
-        ctx.reply("not in a guild").await?;
-        return Ok(());
-    };
     let db = ctx.data().db_guild(&ctx);
     let mut val: Value = match ctx
         .data()

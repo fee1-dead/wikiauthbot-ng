@@ -71,13 +71,13 @@ async fn event_handler(
             let guild = new_member.guild_id;
             let db = u.db.in_guild(guild);
             trace!(?guild, "new member");
-            if let Some(chan) = db.welcome_channel_id(guild.get()).await? {
+            if let Some(chan) = db.welcome_channel_id().await? {
                 let mention = new_member.mention().to_string();
                 
                 let content = if let Ok(Some(whois)) =
                     db.whois(new_member.user.id.get()).await
                 {
-                    if let Ok(authenticated_role) = db.authenticated_role_id(guild.get()).await {
+                    if let Ok(authenticated_role) = db.authenticated_role_id().await {
                         new_member.add_role(ctx, authenticated_role).await?;
                     }
                     match fetch_whois(&u.client, whois.wikimedia_id).await {

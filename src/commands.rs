@@ -50,12 +50,12 @@ pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
         return Ok(());
     }
 
-    let db = &ctx.data().db;
-    if !db.has_server_settings(guild_id.get()).await? {
-        ctx.reply("This server was not set up. Please contact deadbf to set it up first.")
+    let db = ctx.data().db.in_guild(guild_id);
+    if !db.has_server_settings().await? {
+        ctx.reply("This server was not set up. Please contact dbeef to set it up first.")
             .await?;
     }
-    let auth_role = db.authenticated_role_id(guild_id.get()).await?;
+    let auth_role = db.authenticated_role_id().await?;
     let role_id = RoleId::from(auth_role);
     let count = AtomicUsize::new(0);
 
@@ -97,8 +97,8 @@ pub async fn unauthed_list(ctx: Context<'_>, guild_id: GuildId) -> Result {
         ctx.reply("Must be a bot owner or server admin to use this command.").await?;
         return Ok(());
     }
-    let db = &ctx.data().db;
-    let Ok(role) = db.authenticated_role_id(guild_id.get()).await else {
+    let db = ctx.data().db.in_guild(guild_id);
+    let Ok(role) = db.authenticated_role_id().await else {
         ctx.reply("Server is not setup").await?;
         return Ok(())
     };
@@ -109,7 +109,7 @@ pub async fn unauthed_list(ctx: Context<'_>, guild_id: GuildId) -> Result {
                 Ok(if member.roles.contains(&RoleId::new(role)) {
                     let discord_id = member.user.id.get();
                     if db.get_wikimedia_id(discord_id).await?.is_some() {
-                        db.partial_auth(discord_id, guild_id.get()).await?;
+                        db.partial_auth(discord_id).await?;
                         None
                     } else {
                         Some(discord_id)
@@ -149,7 +149,7 @@ pub async fn premigrate_server_check(ctx: Context<'_>, guild_id: GuildId, role_i
                 if member.roles.contains(&role_id) {
                     let discord_id = member.user.id.get();
                     if db.get_wikimedia_id(discord_id).await?.is_some() {
-                        db.partial_auth(discord_id, guild_id.get()).await?;
+                        db.in_guild(guild_id).partial_auth(discord_id).await?;
                         pauthed.fetch_add(1, Ordering::Relaxed);
                     } else {
                         unauthed.fetch_add(1, Ordering::Relaxed);
@@ -224,14 +224,14 @@ pub async fn setup_server(
         allow_banned_users,
     };
 
-    let db = &ctx.data().db;
+    let db = ctx.data().db.in_guild(guild_id);
 
-    if db.has_server_settings(guild_id.get()).await? {
+    if db.has_server_settings().await? {
         ctx.reply("F: server already set up").await?;
         return Ok(());
     }
 
-    db.set_server_settings(guild_id.get(), data).await?;
+    db.set_server_settings(data).await?;
 
     ctx.reply("Setup server").await?;
 
@@ -242,7 +242,8 @@ pub async fn setup_server(
 pub async fn debug_deauth(ctx: Context<'_>, user_id: UserId, guild_id: GuildId) -> Result {
     let db = &ctx.data().db;
     ctx.defer_ephemeral().await?;
-    db.debug_deauth(user_id.get(), guild_id.get()).await?;
+    db.in_guild(guild_id).partial_deauth(user_id.get()).await?;
+    
     ctx.reply("Done.").await?;
     Ok(())
 }
