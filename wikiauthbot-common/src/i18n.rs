@@ -67,7 +67,6 @@ fn get_message_inner(lang: &str, id: &str, args: Option<&FluentArgs>) -> color_e
     let bundle = get_locales_map().get(lang).context("could not get locale for language")?;
     let msg = bundle.get_message(id).with_context(|| format!("`{id}` does not exist in the bundle"))?;
     let val = msg.value().with_context(|| format!("`{id}` in the bundle doesn't have a main value"))?;
-    // TODO we should handle the errors
     let mut errors = vec![];
     let msg = bundle.format_pattern(val, args, &mut errors);
     match &*errors {

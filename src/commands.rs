@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use serenity::all::{GuildId, RoleId, UserId};
+use serenity::all::{ChannelId, GuildId, RoleId, UserId};
 use serenity::futures::TryStreamExt;
 use wikiauthbot_db::ServerSettingsData;
 
@@ -214,7 +214,35 @@ pub async fn setup_server(
         return Ok(());
     }
 
-    // TODO: verify that the bot can send to those channels. and can set roles too.
+    let guild = guild_id.to_partial_guild(ctx).await?;
+    let channels = guild.channels(ctx).await?;
+    let id = ctx.serenity_context().cache.current_user().id;
+    let member = guild_id.member(ctx, id).await?;
+    if !member.permissions(ctx)?.manage_roles() {
+        ctx.reply("Please give the bot permissions to manage roles").await?;
+        return Ok(())
+    }
+    let bot_pos = member.highest_role_info(ctx).unwrap().1;
+    let role_pos = guild.roles.get(&RoleId::new(authenticated_role_id)).unwrap().position;
+    if bot_pos <= role_pos {
+        ctx.reply("It looks like the position of the bot role is lower than the authenticated role.\
+        Please reorder the roles so the bot can add the authenticated role properly.").await?;
+        return Ok(())
+    }
+
+    for (chan, desc) in [ (welcome_channel_id, "welcome channel"), (auth_log_channel_id, "authentication log channel"), (deauth_log_channel_id, "deauthentication log channel") ] {
+        if chan == 0 {
+            continue;
+        }
+
+        let chan = channels.get(&ChannelId::new(chan)).unwrap();
+        let perms = chan.permissions_for_user(ctx, id)?;
+        if !perms.send_messages() {
+            ctx.reply(format!("Oops! Looks like I cannot send message in the {desc}. Please make sure the bot has the right permissions and try again.")).await?;
+            return Ok(())
+        }
+    } 
+
     let data = ServerSettingsData {
         welcome_channel_id,
         auth_log_channel_id,
