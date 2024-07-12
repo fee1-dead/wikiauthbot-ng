@@ -86,7 +86,7 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         let values = sqlx::query(
             "
             select users.discord_id from users
-                inner join auths on users.discord_id = auths.discord_id
+                inner join auths on users.discord_id = auths.user_id
                 where users.wikimedia_id = $1 and auths.guild_id = $2
         ",
         )
