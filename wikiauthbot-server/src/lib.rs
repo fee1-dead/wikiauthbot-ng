@@ -36,8 +36,8 @@ struct State {
 }
 
 #[get("/")]
-async fn index(app_state: web::Data<Arc<State>>) -> String {
-    match app_state.db.ping().await {
+async fn index(_app_state: web::Data<Arc<State>>) -> String {
+    /* match app_state.db.ping().await {
         Ok(elapsed) => {
             format!("wikiauthbot-server is running! time it took for redis to respond: {elapsed:?}")
         }
@@ -45,7 +45,8 @@ async fn index(app_state: web::Data<Arc<State>>) -> String {
             tracing::error!(%e);
             format!("Error occured when requesting from Redis. Read the logs for more details!")
         }
-    }
+    } */
+    "nothing to see here".into()
 }
 
 // TODO i18n this

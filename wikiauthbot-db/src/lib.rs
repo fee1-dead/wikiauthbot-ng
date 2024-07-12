@@ -7,8 +7,8 @@ use color_eyre::eyre::bail;
 use dashmap::DashMap;
 use fred::prelude::*;
 use fred::types::DEFAULT_JITTER_MS;
-use sqlx::sqlite::SqliteRow;
-use sqlx::{QueryBuilder, Row, SqlitePool};
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqliteRow};
+use sqlx::{Executor, QueryBuilder, Row, SqlitePool};
 use wikiauthbot_common::Config;
 
 pub mod server;
@@ -251,6 +251,12 @@ async fn make_and_init_redis_client(config: RedisConfig) -> RedisResult<RedisCli
 }
 
 impl DatabaseConnection {
+    pub async fn create_sqlite() -> color_eyre::Result<()> {
+        let options = SqliteConnectOptions::new().create_if_missing(true).filename("wikiauthbot-prod.db").journal_mode(SqliteJournalMode::Wal);
+        let pool = SqlitePool::connect_with(options).await?;
+        pool.execute(include_str!("init.sql")).await?;
+        Ok(())
+    }
     pub async fn prod() -> color_eyre::Result<Self> {
         let password = &Config::get()?.redis_password;
         let url = format!("redis://:{password}@redis.discordbots.eqiad1.wikimedia.cloud:6379");
@@ -263,12 +269,19 @@ impl DatabaseConnection {
         })
     }
 
-    /* pub async fn prod_tunnelled() -> color_eyre::Result<Self> {
+    /// Use a tunnel to the redis server, but use a local file for sqlite.
+    /// You most certainly do not want to use this.
+    pub async fn prod_tunnelled() -> color_eyre::Result<Self> {
         let password = &Config::get()?.redis_password;
         let url = format!("redis://:{password}@127.0.0.1:16379");
         let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
-        Ok(Self { client, lang_cache: DashMap::new() })
-    } */
+        let sqlite = SqlitePool::connect("sqlite:wikiauthbot-prod.db").await?;
+        Ok(Self { client, sqlite, lang_cache: DashMap::new() })
+    }
+
+    pub fn into_parts(self) -> (RedisClient, SqlitePool) {
+        (self.client, self.sqlite)
+    }
 
     pub async fn prod_vps() -> color_eyre::Result<Self> {
         let password = &Config::get()?.redis_password;
