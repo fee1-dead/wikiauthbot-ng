@@ -259,7 +259,7 @@ impl DatabaseConnection {
     }
     pub async fn prod() -> color_eyre::Result<Self> {
         let password = &Config::get()?.redis_password;
-        let url = format!("redis://:{password}@redis.discordbots.eqiad1.wikimedia.cloud:6379");
+        let url = format!("redis://:{password}@redis");
         let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
         let sqlite = SqlitePool::connect("sqlite:wikiauthbot-prod.db").await?;
         Ok(Self {
@@ -281,18 +281,6 @@ impl DatabaseConnection {
 
     pub fn into_parts(self) -> (RedisClient, SqlitePool) {
         (self.client, self.sqlite)
-    }
-
-    pub async fn prod_vps() -> color_eyre::Result<Self> {
-        let password = &Config::get()?.redis_password;
-        let url = format!("redis://:{password}@127.0.0.1:6379");
-        let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
-        let sqlite = SqlitePool::connect("sqlite:wikiauthbot-prod.db").await?;
-        Ok(Self {
-            client,
-            sqlite,
-            lang_cache: DashMap::new(),
-        })
     }
 
     pub async fn dev() -> color_eyre::Result<Self> {

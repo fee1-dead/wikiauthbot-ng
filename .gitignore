@@ -1,6 +1,7 @@
 /target
 /.direnv
 config_secret.toml
+config_secret*.toml
 .env
 auth*.json
 errored*.json
