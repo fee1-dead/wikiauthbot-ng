@@ -173,14 +173,12 @@ impl<'a> DatabaseConnectionInGuild<'a> {
 
     /// Delete the information from a single guild. Does not remove our record
     /// of them in the `users` table.
-    pub async fn partial_deauth(&self, user_id: u64) -> color_eyre::Result<()> {
-        sqlx::query("delete from auths where user_id = $1 and guild_id = $2")
+    pub async fn partial_deauth(&self, user_id: u64) -> color_eyre::Result<bool> {
+        Ok(sqlx::query("delete from auths where user_id = $1 and guild_id = $2")
             .bind(user_id as i64)
             .bind(self.guild_id.get() as i64)
             .execute(&self.sqlite)
-            .await?;
-
-        Ok(())
+            .await?.rows_affected() != 0)
     }
 
     pub async fn welcome_channel_id(&self) -> color_eyre::Result<Option<NonZeroU64>> {
@@ -343,6 +341,14 @@ impl DatabaseConnection {
             .fetch_one(&self.sqlite)
             .await?;
         Ok(row.try_get(0)?)
+    }
+
+    pub async fn full_deauth(&self, discord_id: u64) -> color_eyre::Result<(u64, u64)> {
+        let txn = self.sqlite.begin().await?;
+        let a = sqlx::query("delete from auths where user_id = $1").bind(discord_id as i64).execute(&self.sqlite).await?.rows_affected();
+        let b = sqlx::query("delete from users where discord_id = $1").bind(discord_id as i64).execute(&self.sqlite).await?.rows_affected();
+        txn.commit().await?;
+        Ok((a, b))
     }
 
     pub async fn get_wikimedia_id(&self, discord_id: u64) -> color_eyre::Result<Option<u32>> {

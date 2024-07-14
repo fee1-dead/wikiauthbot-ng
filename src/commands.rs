@@ -267,12 +267,17 @@ pub async fn setup_server(
 }
 
 #[poise::command(prefix_command, owners_only, dm_only, hide_in_help)]
-pub async fn debug_deauth(ctx: Context<'_>, user_id: UserId, guild_id: GuildId) -> Result {
+pub async fn debug_deauth(ctx: Context<'_>, user_id: UserId, guild_id: Option<GuildId>) -> Result {
     let db = &ctx.data().db;
     ctx.defer_ephemeral().await?;
-    db.in_guild(guild_id).partial_deauth(user_id.get()).await?;
+    if let Some(guild_id) = guild_id {
+        let successful = db.in_guild(guild_id).partial_deauth(user_id.get()).await?;
+        ctx.reply(if successful { "Done." } else { "Not done." }).await?;
+    } else {
+        let (servers, entries) = db.full_deauth(user_id.get()).await?;
+        ctx.reply(format!("found {entries} user authed to {servers} servers, now deleted.")).await?;
+    }
     
-    ctx.reply("Done.").await?;
     Ok(())
 }
 
