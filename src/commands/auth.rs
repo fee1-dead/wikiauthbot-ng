@@ -4,7 +4,8 @@ use color_eyre::eyre::bail;
 use poise::CreateReply;
 use serde_json::Value;
 use serenity::all::{
-    Builder, ButtonStyle, ComponentInteractionCollector, CreateActionRow, CreateButton, CreateInteractionResponse, UserId
+    Builder, ButtonStyle, ComponentInteractionCollector, CreateActionRow, CreateButton,
+    CreateInteractionResponse, UserId,
 };
 use serenity::builder::{CreateEmbed, CreateEmbedFooter, EditInteractionResponse};
 use tokio::spawn;
@@ -26,19 +27,18 @@ pub async fn handle_interactions(
     if let Ok(Some(interaction)) = timeout(Duration::from_secs(120), rxns.next()).await {
         match &*interaction.data.custom_id {
             "yes" => {
-                db
-                    .send_successful_req(SuccessfulAuth {
-                        discord_user_id: discord_user_id.into(),
-                        guild_id: db.guild_id(),
-                        central_user_id: wikimedia_id,
-                        username,
-                        brand_new: false,
-                    })
-                    .await?;
+                db.send_successful_req(SuccessfulAuth {
+                    discord_user_id: discord_user_id.into(),
+                    guild_id: db.guild_id(),
+                    central_user_id: wikimedia_id,
+                    username,
+                    brand_new: false,
+                })
+                .await?;
                 interaction
                     .create_response(&ctx, CreateInteractionResponse::Acknowledge)
                     .await?;
-                return Ok(())
+                return Ok(());
             }
             "no" => {
                 let newmsg = EditInteractionResponse::new()
@@ -74,14 +74,15 @@ pub async fn auth(ctx: Context<'_>) -> Result {
     let db2 = db.clone();
     let db = db.in_guild(guild_id);
 
-    if db
-        .is_user_authed_in_server(user_id.get())
-        .await?
-    {
+    if db.is_user_authed_in_server(user_id.get()).await? {
         ctx.reply(db.get_message("auth_exists_in_server").await?)
             .await?;
         if let Ok(authenticated_role) = db.authenticated_role_id().await {
-            ctx.author_member().await.unwrap().add_role(ctx, authenticated_role).await?;
+            ctx.author_member()
+                .await
+                .unwrap()
+                .add_role(ctx, authenticated_role)
+                .await?;
         }
         return Ok(());
     }
@@ -111,18 +112,30 @@ pub async fn auth(ctx: Context<'_>) -> Result {
         let msg = msg!(db, "auth_to_server", name = &name, url = url.to_string())?;
         let yes = msg!(db, "yes")?;
         let no = msg!(db, "no")?;
-        let reply = CreateReply::default().content(msg)
-            .components(vec![
-                CreateActionRow::Buttons(vec![
-                    CreateButton::new("yes").label(yes).style(ButtonStyle::Success), CreateButton::new("no").label(no).style(ButtonStyle::Danger)
-                ]
-            )]);
+        let reply = CreateReply::default()
+            .content(msg)
+            .components(vec![CreateActionRow::Buttons(vec![
+                CreateButton::new("yes")
+                    .label(yes)
+                    .style(ButtonStyle::Success),
+                CreateButton::new("no").label(no).style(ButtonStyle::Danger),
+            ])]);
         let msg = ctx.send(reply).await?.into_message().await?;
         let ctx = ctx.serenity_context().clone();
         let rxns = msg.await_component_interaction(&ctx);
         spawn(async move {
             let db2 = db2.in_guild(guild_id);
-            if let Err(e) = handle_interactions(ctx, user_id, db2.in_guild(guild_id), rxns, wikimedia_id, name, cont_token).await {
+            if let Err(e) = handle_interactions(
+                ctx,
+                user_id,
+                db2.in_guild(guild_id),
+                rxns,
+                wikimedia_id,
+                name,
+                cont_token,
+            )
+            .await
+            {
                 tracing::error!(?e, "Error occured while handling interactions.");
             }
         });
@@ -141,16 +154,18 @@ pub async fn auth(ctx: Context<'_>) -> Result {
 
     let auth = msg!(db, "auth", url = url)?;
     ctx.send(
-        CreateReply::default()
-            .embed(
-                CreateEmbed::new()
-                    .color(0xCCCCCC)
-                    .title(db.get_message("bot").await?)
-                    .description(auth)
-                    .thumbnail("https://cdn.discordapp.com/emojis/546848856650809344.png")
-                    .footer(CreateEmbedFooter::new("This link will be valid for 10 minutes."))
-            )
-    ).await?;
+        CreateReply::default().embed(
+            CreateEmbed::new()
+                .color(0xCCCCCC)
+                .title(db.get_message("bot").await?)
+                .description(auth)
+                .thumbnail("https://cdn.discordapp.com/emojis/546848856650809344.png")
+                .footer(CreateEmbedFooter::new(
+                    "This link will be valid for 10 minutes.",
+                )),
+        ),
+    )
+    .await?;
 
     Ok(())
 }

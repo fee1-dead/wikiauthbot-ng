@@ -91,20 +91,28 @@ pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
 #[poise::command(prefix_command, dm_only, hide_in_help)]
 pub async fn unauthed_list(ctx: Context<'_>, guild_id: GuildId) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
-    let is_server_admin = guild_id.member(ctx, ctx.author().id).await?.permissions(ctx)?.administrator();
+    let is_server_admin = guild_id
+        .member(ctx, ctx.author().id)
+        .await?
+        .permissions(ctx)?
+        .administrator();
 
     if !is_bot_owner && !is_server_admin {
-        ctx.reply("Must be a bot owner or server admin to use this command.").await?;
+        ctx.reply("Must be a bot owner or server admin to use this command.")
+            .await?;
         return Ok(());
     }
     let db = ctx.data().db.in_guild(guild_id);
     let Ok(role) = db.authenticated_role_id().await else {
         ctx.reply("Server is not setup").await?;
-        return Ok(())
+        return Ok(());
     };
 
-    let members = guild_id.members_iter(ctx.http()).map_err(color_eyre::Report::from).try_filter_map(|member| {
-        let db = db.clone();
+    let members = guild_id
+        .members_iter(ctx.http())
+        .map_err(color_eyre::Report::from)
+        .try_filter_map(|member| {
+            let db = db.clone();
             async move {
                 Ok(if member.roles.contains(&RoleId::new(role)) {
                     let discord_id = member.user.id.get();
@@ -115,22 +123,37 @@ pub async fn unauthed_list(ctx: Context<'_>, guild_id: GuildId) -> Result {
                         Some(discord_id)
                     }
                 } else {
-                None })
+                    None
+                })
             }
-    }).try_collect::<Vec<_>>().await?;
+        })
+        .try_collect::<Vec<_>>()
+        .await?;
 
-    let s = members.into_iter().map(|id| format!("* <@{id}>\n")).collect::<String>();
+    let s = members
+        .into_iter()
+        .map(|id| format!("* <@{id}>\n"))
+        .collect::<String>();
     ctx.reply(s).await?;
     Ok(())
 }
 
 #[poise::command(prefix_command, dm_only, hide_in_help)]
-pub async fn premigrate_server_check(ctx: Context<'_>, guild_id: GuildId, role_id: RoleId) -> Result {
+pub async fn premigrate_server_check(
+    ctx: Context<'_>,
+    guild_id: GuildId,
+    role_id: RoleId,
+) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
-    let is_server_admin = guild_id.member(ctx, ctx.author().id).await?.permissions(ctx)?.administrator();
+    let is_server_admin = guild_id
+        .member(ctx, ctx.author().id)
+        .await?
+        .permissions(ctx)?
+        .administrator();
 
     if !is_bot_owner && !is_server_admin {
-        ctx.reply("Must be a bot owner or server admin to use this command.").await?;
+        ctx.reply("Must be a bot owner or server admin to use this command.")
+            .await?;
         return Ok(());
     }
 
@@ -184,10 +207,15 @@ pub async fn setup_server(
     allow_banned_users: bool,
 ) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
-    let is_server_admin = guild_id.member(ctx, ctx.author().id).await?.permissions(ctx)?.administrator();
+    let is_server_admin = guild_id
+        .member(ctx, ctx.author().id)
+        .await?
+        .permissions(ctx)?
+        .administrator();
 
     if !is_bot_owner && !is_server_admin {
-        ctx.reply("Must be a bot owner or server admin to use this command.").await?;
+        ctx.reply("Must be a bot owner or server admin to use this command.")
+            .await?;
         return Ok(());
     }
 
@@ -219,18 +247,30 @@ pub async fn setup_server(
     let id = ctx.serenity_context().cache.current_user().id;
     let member = guild_id.member(ctx, id).await?;
     if !member.permissions(ctx)?.manage_roles() {
-        ctx.reply("Please give the bot permissions to manage roles").await?;
-        return Ok(())
+        ctx.reply("Please give the bot permissions to manage roles")
+            .await?;
+        return Ok(());
     }
     let bot_pos = member.highest_role_info(ctx).unwrap().1;
-    let role_pos = guild.roles.get(&RoleId::new(authenticated_role_id)).unwrap().position;
+    let role_pos = guild
+        .roles
+        .get(&RoleId::new(authenticated_role_id))
+        .unwrap()
+        .position;
     if bot_pos <= role_pos {
-        ctx.reply("It looks like the position of the bot role is lower than the authenticated role.\
-        Please reorder the roles so the bot can add the authenticated role properly.").await?;
-        return Ok(())
+        ctx.reply(
+            "It looks like the position of the bot role is lower than the authenticated role.\
+        Please reorder the roles so the bot can add the authenticated role properly.",
+        )
+        .await?;
+        return Ok(());
     }
 
-    for (chan, desc) in [ (welcome_channel_id, "welcome channel"), (auth_log_channel_id, "authentication log channel"), (deauth_log_channel_id, "deauthentication log channel") ] {
+    for (chan, desc) in [
+        (welcome_channel_id, "welcome channel"),
+        (auth_log_channel_id, "authentication log channel"),
+        (deauth_log_channel_id, "deauthentication log channel"),
+    ] {
         if chan == 0 {
             continue;
         }
@@ -239,9 +279,9 @@ pub async fn setup_server(
         let perms = chan.permissions_for_user(ctx, id)?;
         if !perms.send_messages() {
             ctx.reply(format!("Oops! Looks like I cannot send message in the {desc}. Please make sure the bot has the right permissions and try again.")).await?;
-            return Ok(())
+            return Ok(());
         }
-    } 
+    }
 
     let data = ServerSettingsData {
         welcome_channel_id,
@@ -272,12 +312,16 @@ pub async fn debug_deauth(ctx: Context<'_>, user_id: UserId, guild_id: Option<Gu
     ctx.defer_ephemeral().await?;
     if let Some(guild_id) = guild_id {
         let successful = db.in_guild(guild_id).partial_deauth(user_id.get()).await?;
-        ctx.reply(if successful { "Done." } else { "Not done." }).await?;
+        ctx.reply(if successful { "Done." } else { "Not done." })
+            .await?;
     } else {
         let (servers, entries) = db.full_deauth(user_id.get()).await?;
-        ctx.reply(format!("found {entries} user authed to {servers} servers, now deleted.")).await?;
+        ctx.reply(format!(
+            "found {entries} user authed to {servers} servers, now deleted."
+        ))
+        .await?;
     }
-    
+
     Ok(())
 }
 

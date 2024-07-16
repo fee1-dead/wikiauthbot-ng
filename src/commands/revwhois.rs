@@ -39,12 +39,18 @@ pub async fn revwhois(
     let user_link = db.user_link(&user).await?;
     match &results[..] {
         [] => {
-            ctx.reply(msg!(db, "revwhois_no_auth", name = user, user_link = user_link)?)
-                .await?
+            ctx.reply(msg!(
+                db,
+                "revwhois_no_auth",
+                name = user,
+                user_link = user_link
+            )?)
+            .await?
         }
         &[id] => {
             ctx.reply(msg!(
-                db, "revwhois_one",
+                db,
+                "revwhois_one",
                 name = user,
                 user_link = user_link,
                 mention = Mention::User(id.into()).to_string(),
@@ -58,7 +64,8 @@ pub async fn revwhois(
                 .map(|id| format!("\n* {}", Mention::User(id.into())))
                 .collect::<String>();
             ctx.reply(msg!(
-                db, "revwhois_multiple",
+                db,
+                "revwhois_multiple",
                 name = user,
                 user_link = user_link,
                 mentions = mentions,

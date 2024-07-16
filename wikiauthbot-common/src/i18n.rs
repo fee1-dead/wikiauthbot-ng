@@ -3,11 +3,10 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use color_eyre::eyre::{bail, ContextCompat};
-use fluent::{FluentArgs, FluentResource};
-use fluent::concurrent::FluentBundle;
-use unic_langid::langid;
-
 pub use fluent;
+use fluent::concurrent::FluentBundle;
+use fluent::{FluentArgs, FluentResource};
+use unic_langid::langid;
 
 pub struct LocaleInfo {
     name: &'static str,
@@ -44,11 +43,12 @@ const LOCALES: &'static [LocaleInfo] = &[
 ];
 
 fn get_locales_map() -> &'static HashMap<&'static str, FluentBundle<FluentResource>> {
-    static LOCALES_MAP: OnceLock<HashMap<&'static str, FluentBundle<FluentResource>>> = OnceLock::new();
+    static LOCALES_MAP: OnceLock<HashMap<&'static str, FluentBundle<FluentResource>>> =
+        OnceLock::new();
     LOCALES_MAP.get_or_init(|| {
         let mut map = HashMap::new();
         for LocaleInfo { name, lang, file } in LOCALES {
-            let mut bundle = FluentBundle::new_concurrent(vec![ lang.clone() ]);
+            let mut bundle = FluentBundle::new_concurrent(vec![lang.clone()]);
             // TODO investigate this
             bundle.set_use_isolating(false);
             let resource = FluentResource::try_new(file.to_string()).unwrap();
@@ -63,17 +63,25 @@ pub fn lang_is_supported(lang: &str) -> bool {
     get_locales_map().contains_key(lang)
 }
 
-fn get_message_inner(lang: &str, id: &str, args: Option<&FluentArgs>) -> color_eyre::Result<Cow<'static, str>> {
-    let bundle = get_locales_map().get(lang).context("could not get locale for language")?;
-    let msg = bundle.get_message(id).with_context(|| format!("`{id}` does not exist in the bundle"))?;
-    let val = msg.value().with_context(|| format!("`{id}` in the bundle doesn't have a main value"))?;
+fn get_message_inner(
+    lang: &str,
+    id: &str,
+    args: Option<&FluentArgs>,
+) -> color_eyre::Result<Cow<'static, str>> {
+    let bundle = get_locales_map()
+        .get(lang)
+        .context("could not get locale for language")?;
+    let msg = bundle
+        .get_message(id)
+        .with_context(|| format!("`{id}` does not exist in the bundle"))?;
+    let val = msg
+        .value()
+        .with_context(|| format!("`{id}` in the bundle doesn't have a main value"))?;
     let mut errors = vec![];
     let msg = bundle.format_pattern(val, args, &mut errors);
     match &*errors {
         [] => {}
-        [one] => {
-            return Err(one.clone().into())
-        }
+        [one] => return Err(one.clone().into()),
         [multiple @ ..] => {
             bail!("multiple fluent errors: {multiple:?}")
         }
@@ -99,7 +107,11 @@ pub fn get_message(lang: &str, id: &str) -> color_eyre::Result<Cow<'static, str>
     get_message_inner(lang, id, None)
 }
 
-pub fn get_message_with_args(lang: &str, id: &str, args: FluentArgs) -> color_eyre::Result<Cow<'static, str>> {
+pub fn get_message_with_args(
+    lang: &str,
+    id: &str,
+    args: FluentArgs,
+) -> color_eyre::Result<Cow<'static, str>> {
     get_message_inner(lang, id, Some(&args))
 }
 

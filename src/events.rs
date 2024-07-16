@@ -6,6 +6,7 @@ use serenity::all::{
 };
 use tokio::spawn;
 use tracing::error;
+use wikiauthbot_common::SuccessfulAuth;
 use wikiauthbot_db::msg;
 
 use crate::Data;
@@ -17,30 +18,38 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
 
     spawn(async move {
         loop {
-            let successful_auth =
-                match db.recv_successful_req().await {
-                    Ok(x) => x,
-                    Err(e) => {
-                        if let Some(re) = e.downcast_ref::<RedisError>() {
-                            if let RedisErrorKind::Timeout = re.kind() {
-                                continue;
-                            }
+            let SuccessfulAuth {
+                central_user_id,
+                discord_user_id,
+                guild_id,
+                username,
+                brand_new,
+            } = match db.recv_successful_req().await {
+                Ok(x) => x,
+                Err(e) => {
+                    if let Some(re) = e.downcast_ref::<RedisError>() {
+                        if let RedisErrorKind::Timeout = re.kind() {
+                            continue;
                         }
-                        tracing::error!(?e, "couldn't receive successful request");
-                        continue;
                     }
-                };
+                    tracing::error!(?e, "couldn't receive successful request");
+                    continue;
+                }
+            };
 
-            let wmf_id = successful_auth.central_user_id;
+            let wmf_id = central_user_id;
             let username = successful_auth.username;
-            let discord_user_id: UserId = NonZeroU64::into(successful_auth.discord_user_id);
-            let guild: GuildId = NonZeroU64::into(successful_auth.guild_id);
+            let discord_user_id: UserId = NonZeroU64::into(discord_user_id);
+            let guild: GuildId = NonZeroU64::into(guild_id);
             let parent_db = parent_db.in_guild(guild);
 
-            if let Err(e) = parent_db
-                .full_auth(discord_user_id.get(), wmf_id)
-                .await
-            {
+            let res = if brand_new {
+                parent_db.full_auth(discord_user_id.get(), wmf_id).await
+            } else {
+                parent_db.partial_auth(discord_user_id.get()).await
+            };
+
+            if let Err(e) = res {
                 tracing::error!(%e, "failed to insert authenticated!");
                 continue;
             }
@@ -54,7 +63,10 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                 continue;
             };
 
-            let msg = parent_db.get_message("authreq_successful").await.unwrap_or("Authentication successful".into()); 
+            let msg = parent_db
+                .get_message("authreq_successful")
+                .await
+                .unwrap_or("Authentication successful".into());
 
             let newmsg = EditInteractionResponse::new()
                 .content(msg)
@@ -65,8 +77,7 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                 continue;
             }
 
-            let Ok(authenticated_role_id) = parent_db.authenticated_role_id().await
-            else {
+            let Ok(authenticated_role_id) = parent_db.authenticated_role_id().await else {
                 tracing::error!("failed to get information for server: auth role");
                 continue;
             };
@@ -76,7 +87,8 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                 continue;
             };
 
-            let auditlog = msg!(parent_db, "auditlog_successful_auth", wmf_id = wmf_id).unwrap_or_else(|_| format!("authenticated as wikimedia user {wmf_id}").into());
+            let auditlog = msg!(parent_db, "auditlog_successful_auth", wmf_id = wmf_id)
+                .unwrap_or_else(|_| format!("authenticated as wikimedia user {wmf_id}").into());
 
             if authenticated_role_id != 0 {
                 if let Err(e) = http
@@ -101,10 +113,20 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                     continue;
                 };
                 // TODO: ideally we shouldn't need to fallback
-                let authlog = msg!(parent_db, "authlog", mention = &mention, username = &username, user_link = &*user_link, wmf_id = wmf_id);
-                let authlog = authlog.unwrap_or_else(|_| format!(
-                    "{mention} authenticated as [User:{username}](<{user_link}>) (id {wmf_id})"
-                ).into());
+                let authlog = msg!(
+                    parent_db,
+                    "authlog",
+                    mention = &mention,
+                    username = &username,
+                    user_link = &*user_link,
+                    wmf_id = wmf_id
+                );
+                let authlog = authlog.unwrap_or_else(|_| {
+                    format!(
+                        "{mention} authenticated as [User:{username}](<{user_link}>) (id {wmf_id})"
+                    )
+                    .into()
+                });
                 if let Err(e) = CreateMessage::new()
                     .content(authlog)
                     .execute(&http, (auth_log_channel_id.into(), Some(guild)))

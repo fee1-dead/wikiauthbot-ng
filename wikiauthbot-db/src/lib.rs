@@ -174,11 +174,15 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     /// Delete the information from a single guild. Does not remove our record
     /// of them in the `users` table.
     pub async fn partial_deauth(&self, user_id: u64) -> color_eyre::Result<bool> {
-        Ok(sqlx::query("delete from auths where user_id = $1 and guild_id = $2")
-            .bind(user_id as i64)
-            .bind(self.guild_id.get() as i64)
-            .execute(&self.sqlite)
-            .await?.rows_affected() != 0)
+        Ok(
+            sqlx::query("delete from auths where user_id = $1 and guild_id = $2")
+                .bind(user_id as i64)
+                .bind(self.guild_id.get() as i64)
+                .execute(&self.sqlite)
+                .await?
+                .rows_affected()
+                != 0,
+        )
     }
 
     pub async fn welcome_channel_id(&self) -> color_eyre::Result<Option<NonZeroU64>> {
@@ -249,7 +253,10 @@ async fn make_and_init_redis_client(config: RedisConfig) -> RedisResult<RedisCli
 
 impl DatabaseConnection {
     pub async fn create_sqlite() -> color_eyre::Result<()> {
-        let options = SqliteConnectOptions::new().create_if_missing(true).filename("wikiauthbot-prod.db").journal_mode(SqliteJournalMode::Wal);
+        let options = SqliteConnectOptions::new()
+            .create_if_missing(true)
+            .filename("wikiauthbot-prod.db")
+            .journal_mode(SqliteJournalMode::Wal);
         let pool = SqlitePool::connect_with(options).await?;
         pool.execute(include_str!("init.sql")).await?;
         Ok(())
@@ -273,7 +280,11 @@ impl DatabaseConnection {
         let url = format!("redis://:{password}@127.0.0.1:16379");
         let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
         let sqlite = SqlitePool::connect("sqlite:wikiauthbot-prod.db").await?;
-        Ok(Self { client, sqlite, lang_cache: DashMap::new() })
+        Ok(Self {
+            client,
+            sqlite,
+            lang_cache: DashMap::new(),
+        })
     }
 
     pub fn into_parts(self) -> (RedisClient, SqlitePool) {
@@ -345,8 +356,16 @@ impl DatabaseConnection {
 
     pub async fn full_deauth(&self, discord_id: u64) -> color_eyre::Result<(u64, u64)> {
         let txn = self.sqlite.begin().await?;
-        let a = sqlx::query("delete from auths where user_id = $1").bind(discord_id as i64).execute(&self.sqlite).await?.rows_affected();
-        let b = sqlx::query("delete from users where discord_id = $1").bind(discord_id as i64).execute(&self.sqlite).await?.rows_affected();
+        let a = sqlx::query("delete from auths where user_id = $1")
+            .bind(discord_id as i64)
+            .execute(&self.sqlite)
+            .await?
+            .rows_affected();
+        let b = sqlx::query("delete from users where discord_id = $1")
+            .bind(discord_id as i64)
+            .execute(&self.sqlite)
+            .await?
+            .rows_affected();
         txn.commit().await?;
         Ok((a, b))
     }

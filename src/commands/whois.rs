@@ -74,15 +74,24 @@ pub struct WhoisInfo {
 }
 
 impl WhoisInfo {
-    pub async fn create_embed(mut self, discord_user_id: UserId, db: DatabaseConnectionInGuild<'_>) -> Result<CreateEmbed> {
+    pub async fn create_embed(
+        mut self,
+        discord_user_id: UserId,
+        db: DatabaseConnectionInGuild<'_>,
+    ) -> Result<CreateEmbed> {
         let mention = Mention::User(discord_user_id).to_string();
-        let registration = self.registration
+        let registration = self
+            .registration
             .split_once("T")
             .ok_or_eyre("invalid date")?
             .0;
-        
+
         let global_groups = if !self.groups.is_empty() {
-            let mut msg = msg!(db, "whois_global_groups", groupslist = self.groups.join(", "))?;
+            let mut msg = msg!(
+                db,
+                "whois_global_groups",
+                groupslist = self.groups.join(", ")
+            )?;
             msg.to_mut().push('\n');
             msg
         } else {
@@ -103,7 +112,11 @@ impl WhoisInfo {
             if !wiki.groups.is_empty() {
                 let content = content.to_mut();
                 content.push('\n');
-                content.push_str(&msg!(db, "whois_groups", groupslist = wiki.groups.join(", "))?);
+                content.push_str(&msg!(
+                    db,
+                    "whois_groups",
+                    groupslist = wiki.groups.join(", ")
+                )?);
                 inline = false;
             }
 
@@ -112,14 +125,14 @@ impl WhoisInfo {
         }
 
         let mut whois = msg!(
-            db, "whois",
+            db,
+            "whois",
             mention = mention,
             registration = registration,
             home = self.home,
             global_groups = global_groups,
             edits = edits,
         )?;
-
 
         let mut blocked = false;
         let btext = msg!(db, "whois_blocked")?;
@@ -129,7 +142,11 @@ impl WhoisInfo {
             if !blocked {
                 mb.push_str(&format!(
                     "\n\n<:declined:359850777453264906> {btext}{}\n",
-                    if self.locked { format!(" {ltext}") } else { String::new() }
+                    if self.locked {
+                        format!(" {ltext}")
+                    } else {
+                        String::new()
+                    }
                 ));
                 blocked = true;
             }
@@ -175,7 +192,7 @@ impl WhoisInfo {
 
         if fields.next().is_some() {
             embed = embed.footer(CreateEmbedFooter::new(
-                db.get_message("whois_overflow").await?
+                db.get_message("whois_overflow").await?,
             ));
         }
 

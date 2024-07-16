@@ -21,12 +21,14 @@ mod data_private {
     }
 
     impl Data {
-        pub fn db_guild<'a>(&'a self, ctx: &poise::Context<Data, super::Error>) -> DatabaseConnectionInGuild<'a> {
+        pub fn db_guild<'a>(
+            &'a self,
+            ctx: &poise::Context<Data, super::Error>,
+        ) -> DatabaseConnectionInGuild<'a> {
             self.db.in_guild(ctx.guild_id().unwrap())
         }
     }
 }
-
 
 type Data = data_private::Data;
 
@@ -48,7 +50,9 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
     // They are many errors that can occur, so we only handle the ones we want to customize
     // and forward the rest to the default handler
     match error {
-        poise::FrameworkError::Setup { error, .. } => tracing::error!("Failed to start bot: {:?}", error),
+        poise::FrameworkError::Setup { error, .. } => {
+            tracing::error!("Failed to start bot: {:?}", error)
+        }
         poise::FrameworkError::Command { error, ctx, .. } => {
             tracing::error!("Error in command `{}`: {:?}", ctx.command().name, error,);
         }
@@ -73,10 +77,8 @@ async fn event_handler(
             trace!(?guild, "new member");
             if let Some(chan) = db.welcome_channel_id().await? {
                 let mention = new_member.mention().to_string();
-                
-                let content = if let Ok(Some(whois)) =
-                    db.whois(new_member.user.id.get()).await
-                {
+
+                let content = if let Ok(Some(whois)) = db.whois(new_member.user.id.get()).await {
                     if let Ok(authenticated_role) = db.authenticated_role_id().await {
                         new_member.add_role(ctx, authenticated_role).await?;
                     }
@@ -84,14 +86,19 @@ async fn event_handler(
                         Ok(whois) => {
                             let name = whois.name;
                             let user_link = db.user_link(&name).await?;
-                            wikiauthbot_db::msg!(db, "welcome_has_auth", mention = mention, name = name, user_link = user_link)?
+                            wikiauthbot_db::msg!(
+                                db,
+                                "welcome_has_auth",
+                                mention = mention,
+                                name = name,
+                                user_link = user_link
+                            )?
                         }
                         _ => {
                             tracing::error!("failed to fetch whois!");
                             wikiauthbot_db::msg!(db, "welcome_has_auth_failed", mention = mention)?
                         }
                     }
-                    
                 } else {
                     wikiauthbot_db::msg!(db, "welcome", mention = mention)?
                 };
