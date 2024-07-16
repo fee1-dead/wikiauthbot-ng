@@ -38,7 +38,6 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
             };
 
             let wmf_id = central_user_id;
-            let username = successful_auth.username;
             let discord_user_id: UserId = NonZeroU64::into(discord_user_id);
             let guild: GuildId = NonZeroU64::into(guild_id);
             let parent_db = parent_db.in_guild(guild);
