@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::num::NonZeroU64;
 use std::ops::Deref;
+use std::process::exit;
 use std::time::{Duration, Instant};
 
 use color_eyre::eyre::bail;
@@ -338,7 +339,8 @@ fn try_redis<T>(x: RedisResult<T>) -> RedisResult<T> {
             | RedisErrorKind::Timeout
             | RedisErrorKind::Canceled
             | RedisErrorKind::Unknown => {
-                panic!("crashing due to error: {redis}");
+                eprintln!("crashing due to error: {redis}");
+                exit(1)
             }
             _ => Err(redis),
         },
