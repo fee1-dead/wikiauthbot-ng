@@ -22,7 +22,8 @@ serde = { version = "1.0.193", features = ["derive"] }
 serde_json = "1.0.108"
 tracing = "0.1.40"
 tokio = { version = "1.35.0", features = ["rt-multi-thread"] }
-sqlx = { version = "0.7.4", features = ["runtime-tokio", "sqlite"] }
+# pinned due to issue https://github.com/launchbadge/sqlx/issues/3241
+sqlx = { version = "=0.7.3", features = ["runtime-tokio", "sqlite"] }
 
 [package]
 name = "wikiauthbot-ng"
