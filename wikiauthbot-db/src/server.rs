@@ -38,8 +38,8 @@ impl ChildDatabaseConnection {
 impl DatabaseConnection {
     pub async fn get_auth_req(&self, state: &str) -> color_eyre::Result<Option<AuthRequest>> {
         let txn = self.client.multi();
-        try_redis(txn.get(format!("auth_req:{state}:discord_user_id")).await)?;
-        try_redis(txn.get(format!("auth_req:{state}:guild_id")).await)?;
+        () = try_redis(txn.get(format!("auth_req:{state}:discord_user_id")).await)?;
+        () = try_redis(txn.get(format!("auth_req:{state}:guild_id")).await)?;
         let o: Option<(u64, u64)> = try_redis(txn.exec(true).await)?;
         o.map(|(discord_user_id, guild_id)| {
             AuthRequest::from_redis(state, discord_user_id, guild_id)
@@ -54,7 +54,7 @@ impl DatabaseConnection {
     ) -> color_eyre::Result<()> {
         let expiring_key = format!("auth_message:expiry:{cont_token}");
         let client = self.client.pipeline();
-        try_redis(
+        () = try_redis(
             client
                 .set(
                     format!("auth_message:{discord_user_id}"),
@@ -65,12 +65,12 @@ impl DatabaseConnection {
                 )
                 .await,
         )?;
-        try_redis(
+        () = try_redis(
             client
                 .set(expiring_key, "", Some(Expiration::EX(5 * 60)), None, false)
                 .await,
         )?;
-        try_redis(client.all().await)?;
+        () = try_redis(client.all().await)?;
         Ok(())
     }
 
@@ -80,7 +80,7 @@ impl DatabaseConnection {
     ) -> RedisResult<String> {
         let key = format!("auth_message:{discord_user_id}");
         let mut expiring_key: String = try_redis(self.client.get(&key).await)?;
-        try_redis(self.client.del(&[&key, &expiring_key]).await)?;
+        () = try_redis(self.client.del(&[&key, &expiring_key]).await)?;
         let cont_token = expiring_key.split_off("auth_message:expiry:".len());
         Ok(cont_token)
     }
@@ -92,7 +92,7 @@ impl DatabaseConnection {
         guild_id: NonZeroU64,
     ) -> RedisResult<()> {
         let txn = self.client.multi();
-        try_redis(
+        () = try_redis(
             txn.set(
                 format!("auth_req:{state}:discord_user_id"),
                 discord_user_id.get(),
@@ -102,7 +102,7 @@ impl DatabaseConnection {
             )
             .await,
         )?;
-        try_redis(
+        () = try_redis(
             txn.set(
                 format!("auth_req:{state}:guild_id"),
                 guild_id.get(),
@@ -128,7 +128,7 @@ impl DatabaseConnection {
         let txn = self.client.multi();
 
         let key = format!("successful_auth:{}", discord_user_id);
-        try_redis(
+        () = try_redis(
             txn.hset(
                 &key,
                 [
@@ -142,10 +142,10 @@ impl DatabaseConnection {
             .await,
         )?;
         // make the hash expire after ten minutes.
-        try_redis(txn.expire(&key, 600).await)?;
-        try_redis(txn.lpush("successful_auths", key).await)?;
-        try_redis(txn.expire("successful_auths", 180).await)?;
-        try_redis(txn.exec(true).await)?;
+        () = try_redis(txn.expire(&key, 600).await)?;
+        () = try_redis(txn.lpush("successful_auths", key).await)?;
+        () = try_redis(txn.expire("successful_auths", 180).await)?;
+        () = try_redis(txn.exec(true).await)?;
 
         Ok(())
     }

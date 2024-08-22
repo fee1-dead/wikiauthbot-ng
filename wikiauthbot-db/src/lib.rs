@@ -8,8 +8,8 @@ use color_eyre::eyre::bail;
 use dashmap::DashMap;
 use fred::prelude::*;
 use fred::types::DEFAULT_JITTER_MS;
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqliteRow};
-use sqlx::{Executor, QueryBuilder, Row, SqlitePool};
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteRow};
+use sqlx::{QueryBuilder, Row, SqlitePool};
 use wikiauthbot_common::Config;
 
 pub mod server;
@@ -253,20 +253,17 @@ async fn make_and_init_redis_client(config: RedisConfig) -> RedisResult<RedisCli
 }
 
 impl DatabaseConnection {
-    pub async fn create_sqlite() -> color_eyre::Result<()> {
+    pub async fn connect_sqlite() -> color_eyre::Result<SqlitePool> {
         let options = SqliteConnectOptions::new()
-            .create_if_missing(true)
             .filename("wikiauthbot-prod.db")
             .journal_mode(SqliteJournalMode::Wal);
-        let pool = SqlitePool::connect_with(options).await?;
-        pool.execute(include_str!("init.sql")).await?;
-        Ok(())
+        Ok(SqlitePoolOptions::new().max_connections(100).test_before_acquire(false).connect_with(options).await?)
     }
     pub async fn prod() -> color_eyre::Result<Self> {
         let password = &Config::get()?.redis_password;
         let url = format!("redis://:{password}@redis");
         let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
-        let sqlite = SqlitePool::connect("sqlite:wikiauthbot-prod.db").await?;
+        let sqlite = Self::connect_sqlite().await?;
         Ok(Self {
             client,
             sqlite,
@@ -280,7 +277,7 @@ impl DatabaseConnection {
         let password = &Config::get()?.redis_password;
         let url = format!("redis://:{password}@127.0.0.1:16379");
         let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
-        let sqlite = SqlitePool::connect("sqlite:wikiauthbot-prod.db").await?;
+        let sqlite = Self::connect_sqlite().await?;
         Ok(Self {
             client,
             sqlite,
@@ -294,7 +291,7 @@ impl DatabaseConnection {
 
     pub async fn dev() -> color_eyre::Result<Self> {
         let client = make_and_init_redis_client(RedisConfig::default()).await?;
-        let sqlite = SqlitePool::connect("sqlite:wikiauthbot-prod.db").await?;
+        let sqlite = Self::connect_sqlite().await?;
         Ok(Self {
             client,
             sqlite,
