@@ -165,7 +165,7 @@ pub async fn premigrate_server_check(
     guild_id
         .members_iter(ctx.http())
         .map_err(color_eyre::Report::from)
-        .try_for_each_concurrent(None, |member| {
+        .try_for_each(|member| {
             let db = db.clone();
             let (pauthed, unauthed) = (&pauthed, &unauthed);
             async move {
