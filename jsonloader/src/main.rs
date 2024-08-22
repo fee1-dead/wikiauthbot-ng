@@ -24,7 +24,7 @@ pub struct AuthUser {
 
 pub async fn load_from_json() -> color_eyre::Result<()> {
     if !Path::new("wikiauthbot-prod.db").exists() {
-        DatabaseConnection::create_sqlite().await?;
+        // DatabaseConnection::create_sqlite().await?;
     }
     let db = DatabaseConnection::prod_tunnelled().await.unwrap();
     let (redis, sqlite) = db.into_parts();

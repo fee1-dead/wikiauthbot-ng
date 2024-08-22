@@ -1,10 +1,11 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use poise::CreateReply;
 use serenity::all::{ChannelId, GuildId, RoleId, UserId};
 use serenity::futures::TryStreamExt;
 use wikiauthbot_db::ServerSettingsData;
 
-use crate::{Command, Context, Result};
+use crate::{integrity, Command, Context, Result};
 
 mod auth;
 mod revwhois;
@@ -165,14 +166,13 @@ pub async fn premigrate_server_check(
     guild_id
         .members_iter(ctx.http())
         .map_err(color_eyre::Report::from)
-        .try_for_each(|member| {
+        .try_for_each_concurrent(None, |member| {
             let db = db.clone();
             let (pauthed, unauthed) = (&pauthed, &unauthed);
             async move {
                 if member.roles.contains(&role_id) {
                     let discord_id = member.user.id.get();
                     if db.get_wikimedia_id(discord_id).await?.is_some() {
-                        db.in_guild(guild_id).partial_auth(discord_id).await?;
                         pauthed.fetch_add(1, Ordering::Relaxed);
                     } else {
                         unauthed.fetch_add(1, Ordering::Relaxed);
@@ -252,9 +252,10 @@ pub async fn setup_server(
         return Ok(());
     }
     let bot_pos = member.highest_role_info(ctx).unwrap().1;
+    let role_id = RoleId::new(authenticated_role_id);
     let role_pos = guild
         .roles
-        .get(&RoleId::new(authenticated_role_id))
+        .get(&role_id)
         .unwrap()
         .position;
     if bot_pos <= role_pos {
@@ -301,7 +302,12 @@ pub async fn setup_server(
 
     db.set_server_settings(data).await?;
 
-    ctx.reply("Setup server").await?;
+    let handle = ctx.reply("Server has been setup; please wait for database to be updated.\
+    If you still see this message after a minute please let dbeef know.").await?;
+
+    integrity::role_to_db(ctx.serenity_context(), db, guild_id, role_id).await?;
+
+    handle.edit(ctx, CreateReply::default().content("All done!")).await?;
 
     Ok(())
 }

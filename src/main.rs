@@ -8,6 +8,7 @@ use crate::commands::whois::fetch_whois;
 
 pub mod commands;
 mod events;
+mod integrity;
 
 mod data_private {
     use wikiauthbot_common::Config;
