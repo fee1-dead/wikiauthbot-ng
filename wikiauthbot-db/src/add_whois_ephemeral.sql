@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS guilds_new
     authenticated_role_id INTEGER NOT NULL,
     server_language TEXT NOT NULL,
     allow_banned_users BOOLEAN NOT NULL,
-    whois_is_ephemeral BOOLEAN NOT NULL,
+    whois_is_ephemeral BOOLEAN NOT NULL
 );
 
 insert into guilds_new (
