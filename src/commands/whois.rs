@@ -218,9 +218,10 @@ pub async fn fetch_whois(client: &mwapi::Client, wikimedia_id: u32) -> Result<Wh
 pub async fn whois_impl(ctx: Context<'_>, user_id: UserId) -> Result {
     let crate::Data { client, .. } = ctx.data();
     let db = ctx.data().db_guild(&ctx);
-    
+
     if !db.has_server_settings() {
-        ctx.reply("this server has not been setup. Please contact dbeef for setup assistance.").await?;
+        ctx.reply("this server has not been setup. Please contact dbeef for setup assistance.")
+            .await?;
     }
 
     if db.whois_is_ephemeral() {

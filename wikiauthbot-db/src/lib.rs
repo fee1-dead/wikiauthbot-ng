@@ -12,8 +12,8 @@ use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, S
 use sqlx::{QueryBuilder, Row, SqlitePool};
 use wikiauthbot_common::Config;
 
-pub mod server;
 mod migrations;
+pub mod server;
 
 #[derive(Clone)]
 pub struct DatabaseConnection {
@@ -41,6 +41,10 @@ macro_rules! msg {
 impl<'a> DatabaseConnectionInGuild<'a> {
     pub fn guild_id(&self) -> NonZeroU64 {
         self.guild_id
+    }
+
+    pub fn server_settings(&self) -> &Option<ServerSettingsData> {
+        &self.server_settings
     }
 
     pub async fn is_user_authed_in_server(&self, discord_id: u64) -> color_eyre::Result<bool> {
@@ -142,7 +146,7 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         data: ServerSettingsData,
     ) -> color_eyre::Result<()> {
         assert!(self.server_settings.is_none());
-        self.inner.servers.insert(self.guild_id, data.clone());
+        self.servers.insert(self.guild_id, data.clone());
         self.server_settings = Some(data.clone());
         let ServerSettingsData {
             welcome_channel_id,
@@ -169,6 +173,52 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         Ok(())
     }
 
+    pub async fn update_server_settings(
+        &mut self,
+        update: impl FnOnce(ServerSettingsData) -> ServerSettingsData,
+    ) -> color_eyre::Result<()> {
+        let data = self.server_settings.take().unwrap();
+        let data = update(data);
+        self.server_settings = Some(data.clone());
+        self.servers.insert(self.guild_id, data.clone());
+
+        let ServerSettingsData {
+            welcome_channel_id,
+            auth_log_channel_id,
+            deauth_log_channel_id,
+            authenticated_role_id,
+            server_language,
+            allow_banned_users,
+            whois_is_ephemeral,
+        } = data;
+        let mut q = QueryBuilder::new(
+            "update guilds
+        set(
+            welcome_channel_id,
+            auth_log_channel_id,
+            deauth_log_channel_id,
+            authenticated_role_id,
+            server_language,
+            allow_banned_users,
+            whois_is_ephemeral
+        ) = (",
+        );
+        let mut separated = q.separated(", ");
+        separated
+            .push_bind(welcome_channel_id as i64)
+            .push_bind(auth_log_channel_id as i64)
+            .push_bind(deauth_log_channel_id as i64)
+            .push_bind(authenticated_role_id as i64)
+            .push_bind(server_language)
+            .push_bind(allow_banned_users)
+            .push_bind(whois_is_ephemeral);
+        separated
+            .push_unseparated(") where guild_id = ")
+            .push_bind_unseparated(self.guild_id.get() as i64);
+        q.build().execute(&self.sqlite).await?;
+        Ok(())
+    }
+
     /// Delete the information from a single guild. Does not remove our record
     /// of them in the `users` table.
     pub async fn partial_deauth(&self, user_id: u64) -> color_eyre::Result<bool> {
@@ -184,15 +234,24 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     }
 
     pub fn welcome_channel_id(&self) -> Option<NonZeroU64> {
-        self.server_settings.as_ref().map(|data| data.welcome_channel_id).and_then(NonZeroU64::new)
+        self.server_settings
+            .as_ref()
+            .map(|data| data.welcome_channel_id)
+            .and_then(NonZeroU64::new)
     }
 
     pub fn auth_log_channel_id(&self) -> Option<NonZeroU64> {
-        self.server_settings.as_ref().map(|data: &ServerSettingsData| data.auth_log_channel_id).and_then(NonZeroU64::new)
+        self.server_settings
+            .as_ref()
+            .map(|data: &ServerSettingsData| data.auth_log_channel_id)
+            .and_then(NonZeroU64::new)
     }
 
     pub fn authenticated_role_id(&self) -> Option<NonZeroU64> {
-        self.server_settings.as_ref().map(|data: &ServerSettingsData| data.authenticated_role_id).and_then(NonZeroU64::new)
+        self.server_settings
+            .as_ref()
+            .map(|data: &ServerSettingsData| data.authenticated_role_id)
+            .and_then(NonZeroU64::new)
     }
 
     pub fn whois_is_ephemeral(&self) -> bool {
@@ -236,10 +295,17 @@ impl DatabaseConnection {
         let options = SqliteConnectOptions::new()
             .filename("wikiauthbot-prod.db")
             .journal_mode(SqliteJournalMode::Wal);
-        Ok(SqlitePoolOptions::new().max_connections(100).test_before_acquire(false).connect_with(options).await?)
+        Ok(SqlitePoolOptions::new()
+            .max_connections(100)
+            .test_before_acquire(false)
+            .connect_with(options)
+            .await?)
     }
-    pub async fn load_server_settings(sqlite: &SqlitePool) -> color_eyre::Result<DashMap<NonZeroU64, ServerSettingsData>> {
-        let all_settings = sqlx::query("select
+    pub async fn load_server_settings(
+        sqlite: &SqlitePool,
+    ) -> color_eyre::Result<DashMap<NonZeroU64, ServerSettingsData>> {
+        let all_settings = sqlx::query(
+            "select
             guild_id,
             welcome_channel_id,
             auth_log_channel_id,
@@ -248,7 +314,10 @@ impl DatabaseConnection {
             server_language,
             allow_banned_users,
             whois_is_ephemeral
-        from guilds").fetch_all(sqlite).await?;
+        from guilds",
+        )
+        .fetch_all(sqlite)
+        .await?;
 
         let map = DashMap::new();
         for row in all_settings {
@@ -270,11 +339,7 @@ impl DatabaseConnection {
                 deauth_log_channel_id,
                 authenticated_role_id,
             );
-            fetch!(
-                server_language,
-                allow_banned_users,
-                whois_is_ephemeral,
-            );
+            fetch!(server_language, allow_banned_users, whois_is_ephemeral,);
 
             let data = ServerSettingsData {
                 welcome_channel_id,

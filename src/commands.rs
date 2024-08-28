@@ -105,7 +105,8 @@ pub async fn unauthed_list(ctx: Context<'_>, guild_id: GuildId) -> Result {
     }
     let db = ctx.data().db.in_guild(guild_id);
     let Some(role) = db.authenticated_role_id() else {
-        ctx.reply("Server is not setup with an authenticated role").await?;
+        ctx.reply("Server is not setup with an authenticated role")
+            .await?;
         return Ok(());
     };
 
@@ -195,6 +196,82 @@ pub async fn premigrate_server_check(
     Ok(())
 }
 
+pub async fn server_settings_sanity_check(
+    ctx: Context<'_>,
+    guild_id: GuildId,
+    ServerSettingsData {
+        welcome_channel_id,
+        auth_log_channel_id,
+        deauth_log_channel_id,
+        authenticated_role_id,
+        server_language,
+        allow_banned_users,
+        whois_is_ephemeral: _,
+    }: &ServerSettingsData,
+) -> Result<bool> {
+    if !allow_banned_users {
+        // TODO
+        ctx.reply("F: disallowing banned users is not yet implemented")
+            .await?;
+        return Ok(false);
+    }
+
+    if !wikiauthbot_common::i18n::lang_is_supported(&server_language) {
+        ctx.reply("F: The language you have specified is not supported.")
+            .await?;
+        return Ok(false);
+    }
+
+    let Ok(members) = guild_id.members(ctx, Some(1), None).await else {
+        ctx.reply("F: failed to get members").await?;
+        return Ok(false);
+    };
+
+    if members.len() != 1 {
+        ctx.reply("F: members check failed").await?;
+        return Ok(false);
+    }
+
+    let guild = guild_id.to_partial_guild(ctx).await?;
+    let channels = guild.channels(ctx).await?;
+    let id = ctx.serenity_context().cache.current_user().id;
+    let member = guild_id.member(ctx, id).await?;
+    if !member.permissions(ctx)?.manage_roles() {
+        ctx.reply("Please give the bot permissions to manage roles")
+            .await?;
+        return Ok(false);
+    }
+    let bot_pos = member.highest_role_info(ctx).unwrap().1;
+    let role_id = RoleId::new(*authenticated_role_id);
+    let role_pos = guild.roles.get(&role_id).unwrap().position;
+    if bot_pos <= role_pos {
+        ctx.reply(
+            "It looks like the position of the bot role is lower than the authenticated role.\
+        Please reorder the roles so the bot can add the authenticated role properly.",
+        )
+        .await?;
+        return Ok(false);
+    }
+
+    for (chan, desc) in [
+        (welcome_channel_id, "welcome channel"),
+        (auth_log_channel_id, "authentication log channel"),
+        (deauth_log_channel_id, "deauthentication log channel"),
+    ] {
+        if *chan == 0 {
+            continue;
+        }
+
+        let chan = channels.get(&ChannelId::new(*chan)).unwrap();
+        let perms = chan.permissions_for_user(ctx, id)?;
+        if !perms.send_messages() {
+            ctx.reply(format!("Oops! Looks like I cannot send message in the {desc}. Please make sure the bot has the right permissions and try again.")).await?;
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
 #[poise::command(prefix_command, dm_only, hide_in_help)]
 pub async fn setup_server(
     ctx: Context<'_>,
@@ -220,71 +297,6 @@ pub async fn setup_server(
         return Ok(());
     }
 
-    if !allow_banned_users {
-        // TODO
-        ctx.reply("F: disallowing banned users is not yet implemented")
-            .await?;
-        return Ok(());
-    }
-
-    if !wikiauthbot_common::i18n::lang_is_supported(&server_language) {
-        ctx.reply("F: The language you have specified is not supported.")
-            .await?;
-        return Ok(());
-    }
-
-    let Ok(members) = guild_id.members(ctx, Some(1), None).await else {
-        ctx.reply("F: failed to get members").await?;
-        return Ok(());
-    };
-
-    if members.len() != 1 {
-        ctx.reply("F: members check failed").await?;
-        return Ok(());
-    }
-
-    let guild = guild_id.to_partial_guild(ctx).await?;
-    let channels = guild.channels(ctx).await?;
-    let id = ctx.serenity_context().cache.current_user().id;
-    let member = guild_id.member(ctx, id).await?;
-    if !member.permissions(ctx)?.manage_roles() {
-        ctx.reply("Please give the bot permissions to manage roles")
-            .await?;
-        return Ok(());
-    }
-    let bot_pos = member.highest_role_info(ctx).unwrap().1;
-    let role_id = RoleId::new(authenticated_role_id);
-    let role_pos = guild
-        .roles
-        .get(&role_id)
-        .unwrap()
-        .position;
-    if bot_pos <= role_pos {
-        ctx.reply(
-            "It looks like the position of the bot role is lower than the authenticated role.\
-        Please reorder the roles so the bot can add the authenticated role properly.",
-        )
-        .await?;
-        return Ok(());
-    }
-
-    for (chan, desc) in [
-        (welcome_channel_id, "welcome channel"),
-        (auth_log_channel_id, "authentication log channel"),
-        (deauth_log_channel_id, "deauthentication log channel"),
-    ] {
-        if chan == 0 {
-            continue;
-        }
-
-        let chan = channels.get(&ChannelId::new(chan)).unwrap();
-        let perms = chan.permissions_for_user(ctx, id)?;
-        if !perms.send_messages() {
-            ctx.reply(format!("Oops! Looks like I cannot send message in the {desc}. Please make sure the bot has the right permissions and try again.")).await?;
-            return Ok(());
-        }
-    }
-
     let data = ServerSettingsData {
         welcome_channel_id,
         auth_log_channel_id,
@@ -295,6 +307,11 @@ pub async fn setup_server(
         whois_is_ephemeral,
     };
 
+    if !server_settings_sanity_check(ctx, guild_id, &data).await? {
+        // sanity check found something bad, just return here since the error is already given.
+        return Ok(());
+    }
+
     let mut db = ctx.data().db.in_guild(guild_id);
 
     if db.has_server_settings() {
@@ -304,12 +321,78 @@ pub async fn setup_server(
 
     db.set_server_settings(data).await?;
 
-    let handle = ctx.reply("Server has been setup; please wait for database to be updated.\
-    If you still see this message after a minute please let dbeef know.").await?;
+    let handle = ctx
+        .reply(
+            "Server has been setup; please wait for database to be updated.\
+    If you still see this message after a minute please let dbeef know.",
+        )
+        .await?;
 
-    integrity::role_to_db(ctx.serenity_context(), db, guild_id, role_id).await?;
+    integrity::role_to_db(ctx.serenity_context(), db, guild_id, RoleId::from(authenticated_role_id)).await?;
 
-    handle.edit(ctx, CreateReply::default().content("All done!")).await?;
+    handle
+        .edit(ctx, CreateReply::default().content("All done!"))
+        .await?;
+
+    Ok(())
+}
+
+#[poise::command(prefix_command, dm_only, hide_in_help)]
+pub async fn set_server_language(
+    ctx: Context<'_>,
+    guild_id: GuildId,
+    server_language: String,
+) -> Result {
+    let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
+
+    if !is_bot_owner {
+        ctx.reply("Must be a bot owner to use this command.")
+            .await?;
+        return Ok(());
+    }
+    let mut db = ctx.data().db_guild(&ctx);
+    let mut data = db.server_settings().clone().unwrap();
+
+    data.server_language = server_language;
+
+    if !server_settings_sanity_check(ctx, guild_id, &data).await? {
+        // sanity check found something bad, just return here since the error is already given.
+        return Ok(());
+    }
+
+    db.update_server_settings(|_| data).await?;
+
+    ctx.reply("Done! uwu").await?;
+
+    Ok(())
+}
+
+#[poise::command(prefix_command, dm_only, hide_in_help)]
+pub async fn set_server_whois_is_ephemeral(
+    ctx: Context<'_>,
+    guild_id: GuildId,
+    whois_is_ephemeral: bool,
+) -> Result {
+    let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
+
+    if !is_bot_owner {
+        ctx.reply("Must be a bot owner to use this command.")
+            .await?;
+        return Ok(());
+    }
+    let mut db = ctx.data().db_guild(&ctx);
+    let mut data = db.server_settings().clone().unwrap();
+
+    data.whois_is_ephemeral = whois_is_ephemeral;
+
+    if !server_settings_sanity_check(ctx, guild_id, &data).await? {
+        // sanity check found something bad, just return here since the error is already given.
+        return Ok(());
+    }
+
+    db.update_server_settings(|_| data).await?;
+
+    ctx.reply("Done! uwu").await?;
 
     Ok(())
 }

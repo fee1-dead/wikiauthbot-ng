@@ -8,7 +8,9 @@ impl DatabaseConnection {
         Ok(())
     }
     pub async fn do_add_whois_ephemeral_sql(&self) -> color_eyre::Result<()> {
-        self.sqlite.execute(include_str!("add_whois_ephemeral.sql")).await?;
+        self.sqlite
+            .execute(include_str!("add_whois_ephemeral.sql"))
+            .await?;
         Ok(())
     }
 }
