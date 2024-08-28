@@ -434,6 +434,8 @@ pub fn all_commands() -> Vec<Command> {
         cleanup_roles(),
         debug_deauth(),
         unauthed_list(),
+        set_server_language(),
+        set_server_whois_is_ephemeral(),
         // whois::whois_test(),
     ]
 }
