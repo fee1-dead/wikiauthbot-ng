@@ -3,7 +3,7 @@ use serenity::futures::TryStreamExt;
 use wikiauthbot_db::DatabaseConnectionInGuild;
 
 pub async fn role_to_db(ctx: &Context, db: DatabaseConnectionInGuild<'_>, guild_id: GuildId, role_id: RoleId) -> color_eyre::Result<()> {
-    assert!(db.has_server_settings().await?);
+    assert!(db.has_server_settings());
 
     guild_id
     .members_iter(ctx)

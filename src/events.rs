@@ -76,13 +76,8 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                 continue;
             }
 
-            let Ok(authenticated_role_id) = parent_db.authenticated_role_id().await else {
+            let Some(authenticated_role_id) = parent_db.authenticated_role_id() else {
                 tracing::error!("failed to get information for server: auth role");
-                continue;
-            };
-
-            let Ok(auth_log_channel_id) = parent_db.auth_log_channel_id().await else {
-                tracing::error!("failed to get information for server: auth log channel");
                 continue;
             };
 
@@ -105,7 +100,7 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                 }
             }
 
-            if auth_log_channel_id != 0 {
+            if let Some(auth_log_channel_id) = parent_db.auth_log_channel_id() {
                 let mention = Mention::User(discord_user_id).to_string();
                 let Ok(user_link) = parent_db.user_link(&username).await else {
                     tracing::error!("couldn't get user link");

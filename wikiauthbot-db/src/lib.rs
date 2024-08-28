@@ -19,20 +19,21 @@ mod migrations;
 pub struct DatabaseConnection {
     client: RedisClient,
     sqlite: SqlitePool,
-    lang_cache: DashMap<NonZeroU64, String>,
+    servers: DashMap<NonZeroU64, ServerSettingsData>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct DatabaseConnectionInGuild<'a> {
     inner: &'a DatabaseConnection,
     guild_id: NonZeroU64,
+    server_settings: Option<ServerSettingsData>,
 }
 
 #[macro_export]
 macro_rules! msg {
     ($db:expr, $($rest:tt)+) => {
         {
-            $db.server_language().await.map_err(|e| e.into()).and_then(|lang| ::wikiauthbot_common::msg!(&lang, $($rest)+))
+            ::wikiauthbot_common::msg!($db.server_language(), $($rest)+)
         }
     };
 }
@@ -54,14 +55,14 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     }
 
     pub async fn get_message(&self, key: &str) -> color_eyre::Result<Cow<'static, str>> {
-        let lang = self.server_language().await?;
-        wikiauthbot_common::i18n::get_message(&lang, key)
+        let lang = self.server_language();
+        wikiauthbot_common::i18n::get_message(lang, key)
     }
 
     pub async fn user_link(&self, user_name: &str) -> color_eyre::Result<Cow<'static, str>> {
-        let lang = self.server_language().await?;
+        let lang = self.server_language();
         let normalized_name = user_name.replace(' ', "+");
-        wikiauthbot_common::msg!(&lang, "user_link", normalized_name = normalized_name)
+        wikiauthbot_common::msg!(lang, "user_link", normalized_name = normalized_name)
     }
 
     pub async fn whois(&self, discord_id: u64) -> color_eyre::Result<Option<WhoisResult>> {
@@ -100,19 +101,8 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         Ok(values)
     }
 
-    // TODO the hashmap should be more ergonomic
-    pub async fn server_language(&self) -> color_eyre::Result<String> {
-        if let Some(lang) = self.lang_cache.get(&self.guild_id) {
-            return Ok(lang.clone());
-        }
-        let lang: String = sqlx::query("select server_language from guilds where guild_id = $1")
-            .bind(self.guild_id.get() as i64)
-            .map(|x: SqliteRow| x.get(0))
-            .fetch_one(&self.sqlite)
-            .await?;
-
-        self.lang_cache.insert(self.guild_id, lang.clone());
-        Ok(lang)
+    pub fn server_language(&self) -> &str {
+        &self.server_settings.as_ref().unwrap().server_language
     }
 
     pub async fn full_auth(&self, discord_id: u64, wikimedia_id: u32) -> color_eyre::Result<()> {
@@ -148,8 +138,13 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     }
 
     pub async fn set_server_settings(
-        &self,
-        ServerSettingsData {
+        &mut self,
+        data: ServerSettingsData,
+    ) -> color_eyre::Result<()> {
+        assert!(self.server_settings.is_none());
+        self.inner.servers.insert(self.guild_id, data.clone());
+        self.server_settings = Some(data.clone());
+        let ServerSettingsData {
             welcome_channel_id,
             auth_log_channel_id,
             deauth_log_channel_id,
@@ -157,8 +152,7 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             server_language,
             allow_banned_users,
             whois_is_ephemeral,
-        }: ServerSettingsData,
-    ) -> color_eyre::Result<()> {
+        } = data;
         let mut q = QueryBuilder::new("INSERT INTO guilds VALUES(");
         let mut separated = q.separated(", ");
         separated
@@ -189,42 +183,24 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         )
     }
 
-    pub async fn welcome_channel_id(&self) -> color_eyre::Result<Option<NonZeroU64>> {
-        let n: Option<i64> =
-            sqlx::query("select welcome_channel_id from guilds where guild_id = $1")
-                .bind(self.guild_id.get() as i64)
-                .fetch_optional(&self.sqlite)
-                .await?
-                .map(|r| r.get(0));
-        Ok(n.map(|x| x as u64).and_then(NonZeroU64::new))
+    pub fn welcome_channel_id(&self) -> Option<NonZeroU64> {
+        self.server_settings.as_ref().map(|data| data.welcome_channel_id).and_then(NonZeroU64::new)
     }
 
-    pub async fn auth_log_channel_id(&self) -> color_eyre::Result<u64> {
-        let n: i64 = sqlx::query("select auth_log_channel_id from guilds where guild_id = $1")
-            .bind(self.guild_id.get() as i64)
-            .fetch_one(&self.sqlite)
-            .await?
-            .get(0);
-        Ok(n as u64)
+    pub fn auth_log_channel_id(&self) -> Option<NonZeroU64> {
+        self.server_settings.as_ref().map(|data: &ServerSettingsData| data.auth_log_channel_id).and_then(NonZeroU64::new)
     }
 
-    pub async fn authenticated_role_id(&self) -> color_eyre::Result<u64> {
-        let n: i64 = sqlx::query("select authenticated_role_id from guilds where guild_id = $1")
-            .bind(self.guild_id.get() as i64)
-            .fetch_one(&self.sqlite)
-            .await?
-            .get(0);
-        Ok(n as u64)
+    pub fn authenticated_role_id(&self) -> Option<NonZeroU64> {
+        self.server_settings.as_ref().map(|data: &ServerSettingsData| data.authenticated_role_id).and_then(NonZeroU64::new)
     }
 
-    pub async fn has_server_settings(&self) -> color_eyre::Result<bool> {
-        Ok(
-            sqlx::query("select exists(select 1 from guilds where guild_id = $1)")
-                .bind(self.guild_id.get() as i64)
-                .fetch_one(&self.sqlite)
-                .await?
-                .try_get(0)?,
-        )
+    pub fn whois_is_ephemeral(&self) -> bool {
+        self.server_settings.as_ref().unwrap().whois_is_ephemeral
+    }
+
+    pub fn has_server_settings(&self) -> bool {
+        self.server_settings.is_some()
     }
 }
 
@@ -262,15 +238,68 @@ impl DatabaseConnection {
             .journal_mode(SqliteJournalMode::Wal);
         Ok(SqlitePoolOptions::new().max_connections(100).test_before_acquire(false).connect_with(options).await?)
     }
+    pub async fn load_server_settings(sqlite: &SqlitePool) -> color_eyre::Result<DashMap<NonZeroU64, ServerSettingsData>> {
+        let all_settings = sqlx::query("select
+            guild_id,
+            welcome_channel_id,
+            auth_log_channel_id,
+            deauth_log_channel_id,
+            authenticated_role_id,
+            server_language,
+            allow_banned_users,
+            whois_is_ephemeral
+        from guilds").fetch_all(sqlite).await?;
+
+        let map = DashMap::new();
+        for row in all_settings {
+            let id: i64 = row.get("guild_id");
+            let guild_id = NonZeroU64::new(id as u64).unwrap();
+            macro_rules! fetch_u64s {
+                ($($name:ident),*$(,)?) => {
+                    $(let $name = {let temp: i64 = row.get(stringify!($name)); temp as u64};)*
+                };
+            }
+            macro_rules! fetch {
+                ($($name:ident),*$(,)?) => {
+                    $(let $name = row.get(stringify!($name));)*
+                };
+            }
+            fetch_u64s!(
+                welcome_channel_id,
+                auth_log_channel_id,
+                deauth_log_channel_id,
+                authenticated_role_id,
+            );
+            fetch!(
+                server_language,
+                allow_banned_users,
+                whois_is_ephemeral,
+            );
+
+            let data = ServerSettingsData {
+                welcome_channel_id,
+                auth_log_channel_id,
+                deauth_log_channel_id,
+                authenticated_role_id,
+                server_language,
+                allow_banned_users,
+                whois_is_ephemeral,
+            };
+            map.insert(guild_id, data);
+        }
+
+        Ok(map)
+    }
     pub async fn prod() -> color_eyre::Result<Self> {
         let password = &Config::get()?.redis_password;
         let url = format!("redis://:{password}@redis");
         let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
         let sqlite = Self::connect_sqlite().await?;
+        let server_settings = Self::load_server_settings(&sqlite).await?;
         Ok(Self {
             client,
             sqlite,
-            lang_cache: DashMap::new(),
+            servers: server_settings,
         })
     }
 
@@ -281,10 +310,12 @@ impl DatabaseConnection {
         let url = format!("redis://:{password}@127.0.0.1:16379");
         let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
         let sqlite = Self::connect_sqlite().await?;
+        let server_settings = Self::load_server_settings(&sqlite).await?;
+
         Ok(Self {
             client,
             sqlite,
-            lang_cache: DashMap::new(),
+            servers: server_settings,
         })
     }
 
@@ -295,10 +326,12 @@ impl DatabaseConnection {
     pub async fn dev() -> color_eyre::Result<Self> {
         let client = make_and_init_redis_client(RedisConfig::default()).await?;
         let sqlite = Self::connect_sqlite().await?;
+        let server_settings = Self::load_server_settings(&sqlite).await?;
+
         Ok(Self {
             client,
             sqlite,
-            lang_cache: DashMap::new(),
+            servers: server_settings,
         })
     }
 
@@ -382,9 +415,11 @@ impl DatabaseConnection {
     }
 
     pub fn in_guild(&self, guild_id: impl Into<NonZeroU64>) -> DatabaseConnectionInGuild<'_> {
+        let guild_id = guild_id.into();
         DatabaseConnectionInGuild {
             inner: self,
-            guild_id: guild_id.into(),
+            guild_id,
+            server_settings: self.servers.get(&guild_id).map(|x| x.value().clone()),
         }
     }
 

@@ -52,11 +52,11 @@ pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
     }
 
     let db = ctx.data().db.in_guild(guild_id);
-    if !db.has_server_settings().await? {
+    if !db.has_server_settings() {
         ctx.reply("This server was not set up. Please contact dbeef to set it up first.")
             .await?;
     }
-    let auth_role = db.authenticated_role_id().await?;
+    let auth_role = db.authenticated_role_id().unwrap();
     let role_id = RoleId::from(auth_role);
     let count = AtomicUsize::new(0);
 
@@ -104,8 +104,8 @@ pub async fn unauthed_list(ctx: Context<'_>, guild_id: GuildId) -> Result {
         return Ok(());
     }
     let db = ctx.data().db.in_guild(guild_id);
-    let Ok(role) = db.authenticated_role_id().await else {
-        ctx.reply("Server is not setup").await?;
+    let Some(role) = db.authenticated_role_id() else {
+        ctx.reply("Server is not setup with an authenticated role").await?;
         return Ok(());
     };
 
@@ -115,7 +115,7 @@ pub async fn unauthed_list(ctx: Context<'_>, guild_id: GuildId) -> Result {
         .try_filter_map(|member| {
             let db = db.clone();
             async move {
-                Ok(if member.roles.contains(&RoleId::new(role)) {
+                Ok(if member.roles.contains(&RoleId::new(role.get())) {
                     let discord_id = member.user.id.get();
                     if db.get_wikimedia_id(discord_id).await?.is_some() {
                         db.partial_auth(discord_id).await?;
@@ -295,9 +295,9 @@ pub async fn setup_server(
         whois_is_ephemeral,
     };
 
-    let db = ctx.data().db.in_guild(guild_id);
+    let mut db = ctx.data().db.in_guild(guild_id);
 
-    if db.has_server_settings().await? {
+    if db.has_server_settings() {
         ctx.reply("F: server already set up").await?;
         return Ok(());
     }
