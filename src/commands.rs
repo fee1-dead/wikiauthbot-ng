@@ -328,7 +328,13 @@ pub async fn setup_server(
         )
         .await?;
 
-    integrity::role_to_db(ctx.serenity_context(), db, guild_id, RoleId::from(authenticated_role_id)).await?;
+    integrity::role_to_db(
+        ctx.serenity_context(),
+        db,
+        guild_id,
+        RoleId::from(authenticated_role_id),
+    )
+    .await?;
 
     handle
         .edit(ctx, CreateReply::default().content("All done!"))
