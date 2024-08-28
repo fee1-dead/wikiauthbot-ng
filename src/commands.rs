@@ -356,7 +356,7 @@ pub async fn set_server_language(
             .await?;
         return Ok(());
     }
-    let mut db = ctx.data().db_guild(&ctx);
+    let mut db = ctx.data().db.in_guild(guild_id);
     let mut data = db.server_settings().clone().unwrap();
 
     data.server_language = server_language;
@@ -386,7 +386,7 @@ pub async fn set_server_whois_is_ephemeral(
             .await?;
         return Ok(());
     }
-    let mut db = ctx.data().db_guild(&ctx);
+    let mut db = ctx.data().db.in_guild(guild_id);
     let mut data = db.server_settings().clone().unwrap();
 
     data.whois_is_ephemeral = whois_is_ephemeral;
