@@ -121,9 +121,10 @@ pub async fn load_from_json() -> color_eyre::Result<()> {
 
 async fn main_inner() -> color_eyre::Result<()> {
     println!("Connecting to redis and writing to sqlite..");
-    // let redis = DatabaseConnection::prod_tunnelled().await?;
+    let db = DatabaseConnection::prod().await?;
+    db.do_add_whois_ephemeral_sql().await?;
     // redis.build_revauth().await?;
-    load_from_json().await?;
+    // load_from_json().await?;
     Ok(())
 }
 

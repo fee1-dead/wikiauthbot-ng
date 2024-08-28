@@ -205,6 +205,7 @@ pub async fn setup_server(
     authenticated_role_id: u64,
     server_language: String,
     allow_banned_users: bool,
+    whois_is_ephemeral: bool,
 ) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
     let is_server_admin = guild_id
@@ -291,6 +292,7 @@ pub async fn setup_server(
         authenticated_role_id,
         server_language,
         allow_banned_users,
+        whois_is_ephemeral,
     };
 
     let db = ctx.data().db.in_guild(guild_id);

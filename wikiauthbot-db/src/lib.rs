@@ -13,6 +13,7 @@ use sqlx::{QueryBuilder, Row, SqlitePool};
 use wikiauthbot_common::Config;
 
 pub mod server;
+mod migrations;
 
 #[derive(Clone)]
 pub struct DatabaseConnection {
@@ -155,6 +156,7 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             authenticated_role_id,
             server_language,
             allow_banned_users,
+            whois_is_ephemeral,
         }: ServerSettingsData,
     ) -> color_eyre::Result<()> {
         let mut q = QueryBuilder::new("INSERT INTO guilds VALUES(");
@@ -166,7 +168,8 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             .push_bind(deauth_log_channel_id as i64)
             .push_bind(authenticated_role_id as i64)
             .push_bind(server_language)
-            .push_bind(allow_banned_users);
+            .push_bind(allow_banned_users)
+            .push_bind(whois_is_ephemeral);
         separated.push_unseparated(")");
         q.build().execute(&self.sqlite).await?;
         Ok(())
@@ -326,6 +329,7 @@ pub struct ServerSettingsData {
     pub authenticated_role_id: u64,
     pub server_language: String,
     pub allow_banned_users: bool,
+    pub whois_is_ephemeral: bool,
 }
 
 fn try_redis<T>(x: RedisResult<T>) -> RedisResult<T> {
