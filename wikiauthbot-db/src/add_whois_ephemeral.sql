@@ -21,7 +21,7 @@ insert into guilds_new (
     authenticated_role_id,
     server_language,
     allow_banned_users,
-    true
+    whois_is_ephemeral
 ) select
     guild_id,
     welcome_channel_id,
@@ -30,7 +30,8 @@ insert into guilds_new (
     authenticated_role_id,
     server_language,
     allow_banned_users
-from guilds;
+    true
+from guilds where true;
 
 drop table guilds;
 
