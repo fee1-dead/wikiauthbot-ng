@@ -54,6 +54,6 @@ whois = Discord: {$mention}
     Home: {$home}
     {$global_groups}Total edits: {$edits}
 
-# These are currently unused for now.
+# These are currently unused for now. Please still translate this if possible!
 server_auth_success = Success! Authorization information sent to the bot :)
 server_auth_expired = Auth request was expired or invalid.

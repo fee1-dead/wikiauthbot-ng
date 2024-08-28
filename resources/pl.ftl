@@ -54,6 +54,6 @@ whois = Discord: {$mention}
     Domowa wiki: {$home}
     {$global_groups}Wszystkich edycji: {$edits}
 
-# These are currently unused for now.
+# These are currently unused for now. Please still translate this if possible!
 server_auth_success = Sukces! Informacje uwierzytelniające zostały przekazane do bota :)
 server_auth_expired = Prośba o uwierzytelnienie wygasła lub była niepoprawna.

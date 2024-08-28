@@ -54,6 +54,6 @@ whois = Discord: {$mention}
     Heimatwiki: {$home}
     {$global_groups}Gesamte Bearbeitungen: {$edits}
 
-# These are currently unused for now.
+# These are currently unused for now. Please still translate this if possible!
 server_auth_success = Die Bestätigungsdaten wurden erfolgreich an den Bot gesendet! :)
 server_auth_expired = Der Bestätigungslink ist abgelaufen oder ungültig.

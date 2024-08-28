@@ -56,6 +56,6 @@ whois = Discord : {$mention}
     Wiki d’origine : {$home}
     {$global_groups}Total des contributions : {$edits}
 
-# These are currently unused for now.
+# These are currently unused for now. Please still translate this if possible!
 server_auth_success = Succès ! Informations d'autorisation envoyées au bot :)
 server_auth_expired = La demande d'authentification a expiré ou n'est pas valide.

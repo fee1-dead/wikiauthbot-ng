@@ -54,6 +54,6 @@ whois = Discord: {$mention}
     Proyecto principal: {$home}
     {$global_groups}Ediciones totales: {$edits}
 
-# These are currently unused for now.
+# These are currently unused for now. Please still translate this if possible!
 server_auth_success = ¡Éxito! Información relacionada a la autenticación ha sido enviada al bot :)
 server_auth_expired = La solicitud de autenticación está expirada o es inválida.

@@ -54,6 +54,6 @@ whois = Discord: {$mention}
     Домашня вікі: {$home}
     {$global_groups}Разом редагувань: {$edits}
 
-# These are currently unused for now.
+# These are currently unused for now. Please still translate this if possible!
 server_auth_success = Авторизаційну інформацію успішно надіслано ботові :)
 server_auth_expired = Запит протермінований або недійсний.
