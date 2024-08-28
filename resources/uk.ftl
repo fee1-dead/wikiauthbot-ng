@@ -55,5 +55,5 @@ whois = Discord: {$mention}
     {$global_groups}Разом редагувань: {$edits}
 
 # These are currently unused for now.
-server_auth_success = Success! Authorization information sent to the bot :)
-server_auth_expired = Auth request was expired or invalid.
+server_auth_success = Авторизаційну інформацію успішно надіслано ботові :)
+server_auth_expired = Запит протермінований або недійсний.
