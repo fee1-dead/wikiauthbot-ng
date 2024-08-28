@@ -29,7 +29,7 @@ insert into guilds_new (
     deauth_log_channel_id,
     authenticated_role_id,
     server_language,
-    allow_banned_users
+    allow_banned_users,
     true
 from guilds where true;
 
