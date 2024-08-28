@@ -76,15 +76,10 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                 continue;
             }
 
-            let Some(authenticated_role_id) = parent_db.authenticated_role_id() else {
-                tracing::error!("failed to get information for server: auth role");
-                continue;
-            };
-
             let auditlog = msg!(parent_db, "auditlog_successful_auth", wmf_id = wmf_id)
                 .unwrap_or_else(|_| format!("authenticated as wikimedia user {wmf_id}").into());
 
-            if authenticated_role_id != 0 {
+            if let Some(authenticated_role_id) = parent_db.authenticated_role_id() {
                 if let Err(e) = http
                     .add_member_role(
                         guild,
