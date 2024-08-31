@@ -243,7 +243,11 @@ pub async fn server_settings_sanity_check(
     }
     let bot_pos = member.highest_role_info(ctx).unwrap().1;
     let role_id = RoleId::new(*authenticated_role_id);
-    let role_pos = guild.roles.get(&role_id).unwrap().position;
+    let Some(role) = guild.roles.get(&role_id) else {
+        ctx.reply("The bot is unable to get information about the role ID specified. Please make sure the role ID is correct and try again.").await?;
+        return Ok(false);
+    };
+    let role_pos = role.position;
     if bot_pos <= role_pos {
         ctx.reply(
             "It looks like the position of the bot role is lower than the authenticated role.\
@@ -262,7 +266,13 @@ pub async fn server_settings_sanity_check(
             continue;
         }
 
-        let chan = channels.get(&ChannelId::new(*chan)).unwrap();
+        let Some(chan) = channels.get(&ChannelId::new(*chan)) else {
+            ctx.reply(format!(
+                "The bot is unable to get information about the channel ID specified for the {desc}. \
+                Please make sure the ID is correct, the bot has access to the given channel, and try again."
+            )).await?;
+            return Ok(false);
+        };
         let perms = chan.permissions_for_user(ctx, id)?;
         if !perms.send_messages() {
             ctx.reply(format!("Oops! Looks like I cannot send message in the {desc}. Please make sure the bot has the right permissions and try again.")).await?;
