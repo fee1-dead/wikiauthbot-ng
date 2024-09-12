@@ -136,6 +136,12 @@ pub async fn unauthed_list(ctx: Context<'_>, guild_id: GuildId) -> Result {
         .into_iter()
         .map(|id| format!("* <@{id}>\n"))
         .collect::<String>();
+
+    let s = if s.is_empty() {
+        "No unauthed members found.".to_owned()
+    } else {
+        s
+    };
     ctx.reply(s).await?;
     Ok(())
 }
