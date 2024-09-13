@@ -8,17 +8,16 @@ use color_eyre::eyre::bail;
 use dashmap::DashMap;
 use fred::prelude::*;
 use fred::types::DEFAULT_JITTER_MS;
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteRow};
-use sqlx::{QueryBuilder, Row, SqlitePool};
+use sqlx::mysql::{MySqlPoolOptions, MySqlRow};
+use sqlx::{QueryBuilder, Row, MySqlPool};
 use wikiauthbot_common::Config;
 
-mod migrations;
 pub mod server;
 
 #[derive(Clone)]
 pub struct DatabaseConnection {
-    client: RedisClient,
-    sqlite: SqlitePool,
+    redis: RedisClient,
+    sql: MySqlPool,
     servers: DashMap<NonZeroU64, ServerSettingsData>,
 }
 
@@ -49,10 +48,10 @@ impl<'a> DatabaseConnectionInGuild<'a> {
 
     pub async fn is_user_authed_in_server(&self, discord_id: u64) -> color_eyre::Result<bool> {
         Ok(
-            sqlx::query("select exists(select 1 from auths where user_id = $1 and guild_id = $2)")
-                .bind(discord_id as i64)
-                .bind(self.guild_id.get() as i64)
-                .fetch_one(&self.sqlite)
+            sqlx::query("select exists(select 1 from auths where user_id = ? and guild_id = ?)")
+                .bind(discord_id)
+                .bind(self.guild_id.get())
+                .fetch_one(&self.sql)
                 .await?
                 .try_get(0)?,
         )
@@ -74,13 +73,13 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             r"
             select users.wikimedia_id from auths
                 inner join users on users.discord_id = auths.user_id
-                where auths.user_id = $1
-                    and auths.guild_id = $2
+                where auths.user_id = ?
+                    and auths.guild_id = ?
         ",
         )
-        .bind(discord_id as i64)
-        .bind(self.guild_id.get() as i64)
-        .fetch_optional(&self.sqlite)
+        .bind(discord_id)
+        .bind(self.guild_id.get())
+        .fetch_optional(&self.sql)
         .await?
         .map(|row| WhoisResult {
             wikimedia_id: row.get(0),
@@ -94,13 +93,13 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             "
             select users.discord_id from users
                 inner join auths on users.discord_id = auths.user_id
-                where users.wikimedia_id = $1 and auths.guild_id = $2
+                where users.wikimedia_id = ? and auths.guild_id = ?
         ",
         )
         .bind(wikimedia_id)
-        .bind(self.guild_id.get() as i64)
-        .map(|x: SqliteRow| x.get::<i64, _>(0) as u64)
-        .fetch_all(&self.sqlite)
+        .bind(self.guild_id.get())
+        .map(|x: MySqlRow| x.get(0))
+        .fetch_all(&self.sql)
         .await?;
         Ok(values)
     }
@@ -110,16 +109,16 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     }
 
     pub async fn full_auth(&self, discord_id: u64, wikimedia_id: u32) -> color_eyre::Result<()> {
-        let txn = self.sqlite.begin().await?;
-        sqlx::query("INSERT INTO users VALUES($1, $2)")
-            .bind(discord_id as i64)
+        let txn = self.sql.begin().await?;
+        sqlx::query("INSERT INTO users VALUES(?, ?)")
+            .bind(discord_id)
             .bind(wikimedia_id)
-            .execute(&self.sqlite)
+            .execute(&self.sql)
             .await?;
-        sqlx::query("INSERT INTO auths VALUES($1, $2)")
-            .bind(self.guild_id.get() as i64)
-            .bind(discord_id as i64)
-            .execute(&self.sqlite)
+        sqlx::query("INSERT INTO auths VALUES(?, ?)")
+            .bind(self.guild_id.get())
+            .bind(discord_id)
+            .execute(&self.sql)
             .await?;
         txn.commit().await?;
         Ok(())
@@ -127,15 +126,15 @@ impl<'a> DatabaseConnectionInGuild<'a> {
 
     /// Partially, used when we know what the user is authenticated already.
     pub async fn partial_auth(&self, discord_id: u64) -> color_eyre::Result<()> {
-        let txn = self.sqlite.begin().await?;
+        let txn = self.sql.begin().await?;
         if !self.user_is_authed(discord_id).await? {
             txn.rollback().await?;
             bail!("user isn't authed anymore?");
         }
-        sqlx::query("INSERT INTO auths VALUES($1, $2)")
-            .bind(self.guild_id.get() as i64)
-            .bind(discord_id as i64)
-            .execute(&self.sqlite)
+        sqlx::query("INSERT INTO auths VALUES(?, ?)")
+            .bind(self.guild_id.get())
+            .bind(discord_id)
+            .execute(&self.sql)
             .await?;
         txn.commit().await?;
         Ok(())
@@ -160,16 +159,16 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         let mut q = QueryBuilder::new("INSERT INTO guilds VALUES(");
         let mut separated = q.separated(", ");
         separated
-            .push_bind(self.guild_id.get() as i64)
-            .push_bind(welcome_channel_id as i64)
-            .push_bind(auth_log_channel_id as i64)
-            .push_bind(deauth_log_channel_id as i64)
-            .push_bind(authenticated_role_id as i64)
+            .push_bind(self.guild_id.get())
+            .push_bind(welcome_channel_id)
+            .push_bind(auth_log_channel_id)
+            .push_bind(deauth_log_channel_id)
+            .push_bind(authenticated_role_id)
             .push_bind(server_language)
             .push_bind(allow_banned_users)
             .push_bind(whois_is_ephemeral);
         separated.push_unseparated(")");
-        q.build().execute(&self.sqlite).await?;
+        q.build().execute(&self.sql).await?;
         Ok(())
     }
 
@@ -205,17 +204,17 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         );
         let mut separated = q.separated(", ");
         separated
-            .push_bind(welcome_channel_id as i64)
-            .push_bind(auth_log_channel_id as i64)
-            .push_bind(deauth_log_channel_id as i64)
-            .push_bind(authenticated_role_id as i64)
+            .push_bind(welcome_channel_id)
+            .push_bind(auth_log_channel_id)
+            .push_bind(deauth_log_channel_id)
+            .push_bind(authenticated_role_id)
             .push_bind(server_language)
             .push_bind(allow_banned_users)
             .push_bind(whois_is_ephemeral);
         separated
             .push_unseparated(") where guild_id = ")
-            .push_bind_unseparated(self.guild_id.get() as i64);
-        q.build().execute(&self.sqlite).await?;
+            .push_bind_unseparated(self.guild_id.get());
+        q.build().execute(&self.sql).await?;
         Ok(())
     }
 
@@ -223,10 +222,10 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     /// of them in the `users` table.
     pub async fn partial_deauth(&self, user_id: u64) -> color_eyre::Result<bool> {
         Ok(
-            sqlx::query("delete from auths where user_id = $1 and guild_id = $2")
-                .bind(user_id as i64)
-                .bind(self.guild_id.get() as i64)
-                .execute(&self.sqlite)
+            sqlx::query("delete from auths where user_id = ? and guild_id = ?")
+                .bind(user_id)
+                .bind(self.guild_id.get())
+                .execute(&self.sql)
                 .await?
                 .rows_affected()
                 != 0,
@@ -271,7 +270,7 @@ impl Deref for DatabaseConnectionInGuild<'_> {
 }
 
 pub struct ChildDatabaseConnection {
-    client: RedisClient,
+    redis: RedisClient,
 }
 
 async fn make_and_init_redis_client(config: RedisConfig) -> RedisResult<RedisClient> {
@@ -291,18 +290,15 @@ async fn make_and_init_redis_client(config: RedisConfig) -> RedisResult<RedisCli
 }
 
 impl DatabaseConnection {
-    pub async fn connect_sqlite() -> color_eyre::Result<SqlitePool> {
-        let options = SqliteConnectOptions::new()
-            .filename("wikiauthbot-prod.db")
-            .journal_mode(SqliteJournalMode::Wal);
-        Ok(SqlitePoolOptions::new()
-            .max_connections(100)
-            .test_before_acquire(false)
-            .connect_with(options)
-            .await?)
+    async fn new(redis: RedisClient, sql: MySqlPool) -> color_eyre::Result<Self> {
+        let servers = Self::load_server_settings(&sql).await?;
+        sqlx::migrate!("./src/migrations").run(&sql).await?;
+        Ok(Self {
+            redis, sql, servers,
+        })
     }
-    pub async fn load_server_settings(
-        sqlite: &SqlitePool,
+    async fn load_server_settings(
+        sql: &MySqlPool,
     ) -> color_eyre::Result<DashMap<NonZeroU64, ServerSettingsData>> {
         let all_settings = sqlx::query(
             "select
@@ -316,30 +312,27 @@ impl DatabaseConnection {
             whois_is_ephemeral
         from guilds",
         )
-        .fetch_all(sqlite)
+        .fetch_all(sql)
         .await?;
 
         let map = DashMap::new();
         for row in all_settings {
-            let id: i64 = row.get("guild_id");
-            let guild_id = NonZeroU64::new(id as u64).unwrap();
-            macro_rules! fetch_u64s {
-                ($($name:ident),*$(,)?) => {
-                    $(let $name = {let temp: i64 = row.get(stringify!($name)); temp as u64};)*
-                };
-            }
+            let id: u64 = row.get("guild_id");
+            let guild_id = NonZeroU64::new(id).unwrap();
             macro_rules! fetch {
                 ($($name:ident),*$(,)?) => {
                     $(let $name = row.get(stringify!($name));)*
                 };
             }
-            fetch_u64s!(
+            fetch!(
                 welcome_channel_id,
                 auth_log_channel_id,
                 deauth_log_channel_id,
                 authenticated_role_id,
+                server_language,
+                allow_banned_users,
+                whois_is_ephemeral,
             );
-            fetch!(server_language, allow_banned_users, whois_is_ephemeral,);
 
             let data = ServerSettingsData {
                 welcome_channel_id,
@@ -355,61 +348,42 @@ impl DatabaseConnection {
 
         Ok(map)
     }
+
+    pub async fn connect_mysql() -> color_eyre::Result<MySqlPool> {
+        Ok(MySqlPoolOptions::new().connect(&Config::get()?.sql_url).await?)
+    }
     pub async fn prod() -> color_eyre::Result<Self> {
-        let password = &Config::get()?.redis_password;
+        let cfg = Config::get()?;
+        let password = &cfg.redis_password;
         let url = format!("redis://:{password}@redis");
-        let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
-        let sqlite = Self::connect_sqlite().await?;
-        let server_settings = Self::load_server_settings(&sqlite).await?;
-        Ok(Self {
-            client,
-            sqlite,
-            servers: server_settings,
-        })
+        let redis = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
+        Self::new(redis, Self::connect_mysql().await?).await
     }
 
-    /// Use a tunnel to the redis server, but use a local file for sqlite.
-    /// You most certainly do not want to use this.
+    /// Use a tunnel to the redis server.
     pub async fn prod_tunnelled() -> color_eyre::Result<Self> {
-        let password = &Config::get()?.redis_password;
+        let cfg = Config::get()?;
+        let password = &cfg.redis_password;
         let url = format!("redis://:{password}@127.0.0.1:16379");
-        let client = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
-        let sqlite = Self::connect_sqlite().await?;
-        let server_settings = Self::load_server_settings(&sqlite).await?;
-
-        Ok(Self {
-            client,
-            sqlite,
-            servers: server_settings,
-        })
+        let redis = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
+        
+        Self::new(redis, Self::connect_mysql().await?).await
     }
 
-    pub fn into_parts(self) -> (RedisClient, SqlitePool) {
-        (self.client, self.sqlite)
-    }
-
-    pub async fn dev() -> color_eyre::Result<Self> {
-        let client = make_and_init_redis_client(RedisConfig::default()).await?;
-        let sqlite = Self::connect_sqlite().await?;
-        let server_settings = Self::load_server_settings(&sqlite).await?;
-
-        Ok(Self {
-            client,
-            sqlite,
-            servers: server_settings,
-        })
+    pub fn into_parts(self) -> (RedisClient, MySqlPool) {
+        (self.redis, self.sql)
     }
 
     pub async fn get_child(&self) -> RedisResult<ChildDatabaseConnection> {
-        let client = self.client.clone_new();
-        try_redis(client.init().await)?;
-        Ok(ChildDatabaseConnection { client })
+        let redis = self.redis.clone_new();
+        try_redis(redis.init().await)?;
+        Ok(ChildDatabaseConnection { redis })
     }
 
     pub async fn ping(&self) -> color_eyre::Result<Duration> {
         let instant = Instant::now();
         let _ = sqlx::query("select 1 from auth where user_id = 468253584421552139")
-            .fetch_one(&self.sqlite)
+            .fetch_one(&self.sql)
             .await?;
         Ok(instant.elapsed())
     }
@@ -449,23 +423,23 @@ fn try_redis<T>(x: RedisResult<T>) -> RedisResult<T> {
 
 impl DatabaseConnection {
     pub async fn user_is_authed(&self, discord_id: u64) -> color_eyre::Result<bool> {
-        let row = sqlx::query("select exists(select 1 from users where discord_id = $1)")
-            .bind(discord_id as i64)
-            .fetch_one(&self.sqlite)
+        let row = sqlx::query("select exists(select 1 from users where discord_id = ?)")
+            .bind(discord_id)
+            .fetch_one(&self.sql)
             .await?;
         Ok(row.try_get(0)?)
     }
 
     pub async fn full_deauth(&self, discord_id: u64) -> color_eyre::Result<(u64, u64)> {
-        let txn = self.sqlite.begin().await?;
-        let a = sqlx::query("delete from auths where user_id = $1")
-            .bind(discord_id as i64)
-            .execute(&self.sqlite)
+        let txn = self.sql.begin().await?;
+        let a = sqlx::query("delete from auths where user_id = ?")
+            .bind(discord_id)
+            .execute(&self.sql)
             .await?
             .rows_affected();
-        let b = sqlx::query("delete from users where discord_id = $1")
-            .bind(discord_id as i64)
-            .execute(&self.sqlite)
+        let b = sqlx::query("delete from users where discord_id = ?")
+            .bind(discord_id)
+            .execute(&self.sql)
             .await?
             .rows_affected();
         txn.commit().await?;
@@ -473,9 +447,9 @@ impl DatabaseConnection {
     }
 
     pub async fn get_wikimedia_id(&self, discord_id: u64) -> color_eyre::Result<Option<u32>> {
-        let row = sqlx::query("select wikimedia_id from users where discord_id = $1")
-            .bind(discord_id as i64)
-            .fetch_optional(&self.sqlite)
+        let row = sqlx::query("select wikimedia_id from users where discord_id = ?")
+            .bind(discord_id)
+            .fetch_optional(&self.sql)
             .await?;
         Ok(row.map(|r| r.get(0)))
     }
@@ -490,10 +464,10 @@ impl DatabaseConnection {
     }
 
     pub async fn wmf_auth(&self, discord_id: u64, wikimedia_id: u32) -> color_eyre::Result<()> {
-        sqlx::query("INSERT INTO users VALUES($1, $2)")
-            .bind(discord_id as i64)
+        sqlx::query("INSERT INTO users VALUES(?, ?)")
+            .bind(discord_id)
             .bind(wikimedia_id)
-            .execute(&self.sqlite)
+            .execute(&self.sql)
             .await?;
         Ok(())
     }

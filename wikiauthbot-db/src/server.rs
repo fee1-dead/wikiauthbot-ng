@@ -10,9 +10,9 @@ use crate::{try_redis, ChildDatabaseConnection, DatabaseConnection};
 impl ChildDatabaseConnection {
     pub async fn recv_successful_req(&self) -> color_eyre::Result<SuccessfulAuth> {
         // can't use try_redis on this because it would always time out
-        let (_, key): (String, String) = self.client.blpop("successful_auths", 10.0).await?;
+        let (_, key): (String, String) = self.redis.blpop("successful_auths", 10.0).await?;
         let (discord_user_id, guild_id, central_user_id, username, brand_new) = try_redis(
-            self.client
+            self.redis
                 .hmget(
                     key,
                     &[
@@ -37,7 +37,7 @@ impl ChildDatabaseConnection {
 
 impl DatabaseConnection {
     pub async fn get_auth_req(&self, state: &str) -> color_eyre::Result<Option<AuthRequest>> {
-        let txn = self.client.multi();
+        let txn = self.redis.multi();
         () = try_redis(txn.get(format!("auth_req:{state}:discord_user_id")).await)?;
         () = try_redis(txn.get(format!("auth_req:{state}:guild_id")).await)?;
         let o: Option<(u64, u64)> = try_redis(txn.exec(true).await)?;
@@ -53,7 +53,7 @@ impl DatabaseConnection {
         cont_token: &str,
     ) -> color_eyre::Result<()> {
         let expiring_key = format!("auth_message:expiry:{cont_token}");
-        let client = self.client.pipeline();
+        let client = self.redis.pipeline();
         () = try_redis(
             client
                 .set(
@@ -79,8 +79,8 @@ impl DatabaseConnection {
         discord_user_id: NonZeroU64,
     ) -> RedisResult<String> {
         let key = format!("auth_message:{discord_user_id}");
-        let mut expiring_key: String = try_redis(self.client.get(&key).await)?;
-        () = try_redis(self.client.del(&[&key, &expiring_key]).await)?;
+        let mut expiring_key: String = try_redis(self.redis.get(&key).await)?;
+        () = try_redis(self.redis.del(&[&key, &expiring_key]).await)?;
         let cont_token = expiring_key.split_off("auth_message:expiry:".len());
         Ok(cont_token)
     }
@@ -91,7 +91,7 @@ impl DatabaseConnection {
         discord_user_id: NonZeroU64,
         guild_id: NonZeroU64,
     ) -> RedisResult<()> {
-        let txn = self.client.multi();
+        let txn = self.redis.multi();
         () = try_redis(
             txn.set(
                 format!("auth_req:{state}:discord_user_id"),
@@ -125,7 +125,7 @@ impl DatabaseConnection {
             brand_new,
         }: SuccessfulAuth,
     ) -> RedisResult<()> {
-        let txn = self.client.multi();
+        let txn = self.redis.multi();
 
         let key = format!("successful_auth:{}", discord_user_id);
         () = try_redis(

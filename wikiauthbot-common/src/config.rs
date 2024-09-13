@@ -21,6 +21,7 @@ struct PrivateCfg {
     discord_bot_token: String,
     oauth_client_secret: Box<str>,
     redis_password: String,
+    sql_url: String,
 }
 
 impl PrivateCfg {
@@ -37,6 +38,7 @@ pub struct Config {
     pub oauth_consumer_key: Box<str>,
     pub oauth_client_secret: Box<str>,
     pub redis_password: String,
+    pub sql_url: String,
 }
 
 impl Config {
@@ -57,6 +59,7 @@ impl Config {
                     discord_bot_token,
                     oauth_client_secret,
                     redis_password,
+                    sql_url,
                 } = PrivateCfg::read()?;
                 let cfg = Config {
                     bot_owners,
@@ -64,6 +67,7 @@ impl Config {
                     oauth_consumer_key,
                     oauth_client_secret,
                     redis_password,
+                    sql_url,
                 };
                 Ok(CFG.get_or_init(move || cfg))
             }
