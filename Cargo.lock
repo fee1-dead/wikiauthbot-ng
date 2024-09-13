@@ -734,6 +734,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e962a19be5cfc3f3bf6dd8f61eb50107f356ad6270fbb3ed41476571db78be5"
 
 [[package]]
+name = "datatool"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "dotenvy",
+ "fred",
+ "futures",
+ "mwapi",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "wikiauthbot-common",
+ "wikiauthbot-db",
+]
+
+[[package]]
 name = "der"
 version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1421,23 +1438,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29c15563dc2726973df627357ce0c9ddddbea194836909d655df6a75d2cf296d"
 dependencies = [
  "wasm-bindgen",
-]
-
-[[package]]
-name = "jsonloader"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "dotenvy",
- "fred",
- "futures",
- "mwapi",
- "serde",
- "serde_json",
- "sqlx",
- "tokio",
- "wikiauthbot-common",
- "wikiauthbot-db",
 ]
 
 [[package]]

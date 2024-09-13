@@ -23,6 +23,7 @@ pub struct AuthUser {
 }
 
 pub async fn sqlite_to_mariadb(sqlite: SqlitePool, sql: MySqlPool) -> color_eyre::Result<()> {
+    let txn = sql.begin().await?;
     println!("-- users table start");
     let instant = Instant::now();
     let rows = sqlx::query("select discord_id, wikimedia_id from users").fetch_all(&sqlite).await?;
@@ -89,6 +90,8 @@ pub async fn sqlite_to_mariadb(sqlite: SqlitePool, sql: MySqlPool) -> color_eyre
         sqlx::query("insert into auths values(?, ?)").bind(guild_id).bind(user_id).execute(&sql).await?;
     }
     println!("-- users table done - {:?}", instant.elapsed());
+
+    txn.commit().await?;
 
     println!("Phew! All done.");
 
