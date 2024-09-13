@@ -1,12 +1,12 @@
-// historical file that loads the old json data and inserts it into the database.
-
+// tool used for translating data between places
+/* 
 use std::collections::HashMap;
 use std::time::Instant;
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 // use fred::types::Scanner;
 // use futures::StreamExt;
-use sqlx::{MySqlPool, SqlitePool, Row};
+use sqlx::{MySqlPool, QueryBuilder, Row, SqlitePool};
 use wikiauthbot_db::DatabaseConnection;
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -24,24 +24,28 @@ pub struct AuthUser {
 
 pub async fn sqlite_to_mariadb(sqlite: SqlitePool, sql: MySqlPool) -> color_eyre::Result<()> {
     let txn = sql.begin().await?;
-    println!("-- users table start");
+    /*println!("-- users table start");
     let instant = Instant::now();
     let rows = sqlx::query("select discord_id, wikimedia_id from users").fetch_all(&sqlite).await?;
-    println!("-- users table fetched - {:?}", instant.elapsed());
+    println!("-- users table fetched - {:?} - {}", instant.elapsed(), rows.len());
+    // sqlx::query("delete from users").execute(&sql).await?;
     let instant = Instant::now();
-    for row in rows {
-        let discord_id: i64 = row.get(0);
-        let discord_id = discord_id as u64;
-        let wikimedia_id: u32 = row.get(1);
-        sqlx::query("insert into users values(?, ?)").bind(discord_id).bind(wikimedia_id).execute(&sql).await?;
+    for chunk in rows.chunks(10000) {
+        QueryBuilder::new("insert into users ").push_values(chunk, |mut s, row| {
+            let discord_id: i64 = row.get(0);
+            let discord_id = discord_id as u64;
+            let wikimedia_id: u32 = row.get(1);
+            s.push_bind(discord_id).push_bind(wikimedia_id);
+        }).build().execute(&sql).await?;
+        println!("--- uwu");
     }
-    println!("-- users table done - {:?}", instant.elapsed());
+    println!("-- users table done - {:?}", instant.elapsed());*/
 
     println!("-- guilds table start");
     let instant = Instant::now();
     let rows = sqlx::query("select
         guild_id, welcome_channel_id, auth_log_channel_id,
-        deauth_log_channel_id, authenticated_role_id
+        deauth_log_channel_id, authenticated_role_id,
         server_language, allow_banned_users, whois_is_ephemeral
     from guilds").fetch_all(&sqlite).await?;
     println!("-- guilds table fetched - {:?}", instant.elapsed());
@@ -77,29 +81,32 @@ pub async fn sqlite_to_mariadb(sqlite: SqlitePool, sql: MySqlPool) -> color_eyre
     }
     println!("-- guilds table done - {:?}", instant.elapsed());
 
-    println!("-- users table start");
+    println!("-- auths table start");
     let instant = Instant::now();
     let rows = sqlx::query("select guild_id, user_id from auths").fetch_all(&sqlite).await?;
-    println!("-- users table fetched - {:?}", instant.elapsed());
+    println!("-- auths table fetched - {:?} - {}", instant.elapsed(), rows.len());
     let instant = Instant::now();
-    for row in rows {
-        let guild_id: i64 = row.get(0);
-        let guild_id = guild_id as u64;
-        let user_id: i64 = row.get(0);
-        let user_id = user_id as u64;
-        sqlx::query("insert into auths values(?, ?)").bind(guild_id).bind(user_id).execute(&sql).await?;
+    for chunk in rows.chunks(10000) {
+        QueryBuilder::new("insert into auths ").push_values(chunk, |mut s, row| {
+            let guild_id: i64 = row.get(0);
+            let guild_id = guild_id as u64;
+            let user_id: i64 = row.get(1);
+            let user_id = user_id as u64;
+            s.push_bind(guild_id).push_bind(user_id);
+        }).build().execute(&sql).await?;
+        println!("--- uwu");
     }
-    println!("-- users table done - {:?}", instant.elapsed());
+    println!("-- auths table done - {:?}", instant.elapsed());
 
     txn.commit().await?;
 
     println!("Phew! All done.");
 
     Ok(())
-}
+}*/
 
 async fn main_inner() -> color_eyre::Result<()> {
-    println!("Connecting to sqlite and writing to mariadb..");
+    /*println!("Connecting to sqlite and writing to mariadb..");
     let sql = DatabaseConnection::connect_mysql().await?;
     sqlx::migrate!("../wikiauthbot-db/src/migrations").run(&sql).await?;
     let options = SqliteConnectOptions::new().filename("wikiauthbot-prod.db");
@@ -108,7 +115,7 @@ async fn main_inner() -> color_eyre::Result<()> {
     .test_before_acquire(false)
     .connect_with(options)
     .await?;
-    sqlite_to_mariadb(sqlite, sql).await?;
+    sqlite_to_mariadb(sqlite, sql).await?;*/
     // redis.build_revauth().await?;
     // load_from_json().await?;
     Ok(())
