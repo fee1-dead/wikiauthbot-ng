@@ -1,8 +1,9 @@
 use std::cmp::Reverse;
+use std::time::Instant;
 
 use color_eyre::eyre::{Context as _, OptionExt};
 use poise::CreateReply;
-use serenity::all::{Mention, User, UserId};
+use serenity::all::{GuildId, Mention, User, UserId};
 use serenity::builder::{CreateEmbed, CreateEmbedFooter};
 use wikiauthbot_db::{msg, DatabaseConnectionInGuild, WhoisResult};
 
@@ -264,4 +265,21 @@ pub async fn whois(
     #[description = "User to check, leave blank for yourself"] user: Option<UserId>,
 ) -> Result {
     whois_impl(ctx, user.unwrap_or_else(|| ctx.author().id)).await
+}
+
+#[poise::command(prefix_command)]
+pub async fn whois_bench(ctx: Context<'_>, guild: GuildId, user: Option<UserId>) -> Result {
+    let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
+    if !is_bot_owner {
+        // silent fail
+        return Ok(());
+    }
+
+    let start = Instant::now();
+    let res = ctx.data().db.in_guild(guild).whois(user.unwrap_or(ctx.author().id).get()).await;
+    let elapsed = start.elapsed();
+
+    ctx.reply(format!("elapsed {elapsed:?} for result {res:?}")).await?;
+
+    Ok(())
 }

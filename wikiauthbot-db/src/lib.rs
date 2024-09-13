@@ -415,6 +415,7 @@ impl DatabaseConnection {
     }
 }
 
+#[derive(Debug)]
 pub struct WhoisResult {
     pub wikimedia_id: u32,
 }
