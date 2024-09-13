@@ -268,7 +268,7 @@ pub async fn whois(
 }
 
 #[poise::command(prefix_command)]
-pub async fn whois_bench(ctx: Context<'_>, guild: GuildId, user: Option<UserId>) -> Result {
+pub(crate) async fn whois_bench(ctx: Context<'_>, guild: GuildId, user: Option<UserId>) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
     if !is_bot_owner {
         // silent fail

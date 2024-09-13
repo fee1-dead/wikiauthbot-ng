@@ -445,6 +445,7 @@ pub fn all_commands() -> Vec<Command> {
         auth::auth(),
         whois::whois(),
         whois::whois_menu(),
+        whois::whois_bench(),
         premigrate_server_check(),
         revwhois::revwhois(),
         cleanup_roles(),
