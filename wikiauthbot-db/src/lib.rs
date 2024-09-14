@@ -9,7 +9,7 @@ use dashmap::DashMap;
 use fred::prelude::*;
 use fred::types::DEFAULT_JITTER_MS;
 use sqlx::mysql::{MySqlPoolOptions, MySqlRow};
-use sqlx::{QueryBuilder, Row, MySqlPool};
+use sqlx::{MySqlPool, QueryBuilder, Row};
 use wikiauthbot_common::Config;
 
 pub mod server;
@@ -51,6 +51,16 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             sqlx::query("select exists(select 1 from auths where user_id = ? and guild_id = ?)")
                 .bind(discord_id)
                 .bind(self.guild_id.get())
+                .fetch_one(&self.sql)
+                .await?
+                .try_get(0)?,
+        )
+    }
+
+    pub async fn count_guilds_authed_to(&self, user_id: u64) -> color_eyre::Result<u64> {
+        Ok(
+            sqlx::query("select count(guild_id) as num_guilds from auths where user_id = ?")
+                .bind(user_id)
                 .fetch_one(&self.sql)
                 .await?
                 .try_get(0)?,
@@ -190,31 +200,30 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             allow_banned_users,
             whois_is_ephemeral,
         } = data;
-        let mut q = QueryBuilder::new(
+
+        sqlx::query(
             "update guilds
-        set(
-            welcome_channel_id,
-            auth_log_channel_id,
-            deauth_log_channel_id,
-            authenticated_role_id,
-            server_language,
-            allow_banned_users,
-            whois_is_ephemeral
-        ) = (",
-        );
-        let mut separated = q.separated(", ");
-        separated
-            .push_bind(welcome_channel_id)
-            .push_bind(auth_log_channel_id)
-            .push_bind(deauth_log_channel_id)
-            .push_bind(authenticated_role_id)
-            .push_bind(server_language)
-            .push_bind(allow_banned_users)
-            .push_bind(whois_is_ephemeral);
-        separated
-            .push_unseparated(") where guild_id = ")
-            .push_bind_unseparated(self.guild_id.get());
-        q.build().execute(&self.sql).await?;
+                set
+                    welcome_channel_id = ?,
+                    auth_log_channel_id = ?,
+                    deauth_log_channel_id = ?,
+                    authenticated_role_id = ?, 
+                    server_language = ?,
+                    allow_banned_users = ?,
+                    whois_is_ephemeral = ?
+                where guild_id = ?",
+        )
+        .bind(welcome_channel_id)
+        .bind(auth_log_channel_id)
+        .bind(deauth_log_channel_id)
+        .bind(authenticated_role_id)
+        .bind(server_language)
+        .bind(allow_banned_users)
+        .bind(whois_is_ephemeral)
+        .bind(self.guild_id.get())
+        .execute(&self.sql)
+        .await?;
+
         Ok(())
     }
 
@@ -294,7 +303,9 @@ impl DatabaseConnection {
         let servers = Self::load_server_settings(&sql).await?;
         sqlx::migrate!("./src/migrations").run(&sql).await?;
         Ok(Self {
-            redis, sql, servers,
+            redis,
+            sql,
+            servers,
         })
     }
     async fn load_server_settings(
@@ -350,7 +361,9 @@ impl DatabaseConnection {
     }
 
     pub async fn connect_mysql() -> color_eyre::Result<MySqlPool> {
-        Ok(MySqlPoolOptions::new().connect(&Config::get()?.sql_url).await?)
+        Ok(MySqlPoolOptions::new()
+            .connect(&Config::get()?.sql_url)
+            .await?)
     }
     pub async fn prod() -> color_eyre::Result<Self> {
         let cfg = Config::get()?;
@@ -366,7 +379,7 @@ impl DatabaseConnection {
         let password = &cfg.redis_password;
         let url = format!("redis://:{password}@127.0.0.1:16379");
         let redis = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
-        
+
         Self::new(redis, Self::connect_mysql().await?).await
     }
 
