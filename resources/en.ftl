@@ -55,6 +55,17 @@ whois = Discord: {$mention}
     Home: {$home}
     {$global_groups}Total edits: {$edits}
 
+deauth = Are you sure you want to remove your authentication from this server?
+deauth_not_found = You are currently not authenticated to this server. Run this command in a server where you are authenticated.
+deauth_done = Successfully removed authentication data.
+deauth_more = You are currently authenticated to {$num_servers_authed} servers. Would you like to remove data from only this server, or from all {$num_servers_authed} servers?
+deauth_more_single = Delete from only this server
+deauth_more_single_done = Successfully removed authentication data from this server.
+deauth_more_multi = Delete from all servers I am in
+deauth_more_multi_done = Successfully removed authentication data from {$num_servers_authed} servers.
+deauth_log = {$mention} has deauthenticated.
+deauth_audit_log = Deauthenticated
+
 # These are currently unused for now. Please still translate this if possible!
 server_auth_success = Success! Authorization information sent to the bot :)
 server_auth_expired = Auth request was expired or invalid.

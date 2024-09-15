@@ -8,6 +8,7 @@ use wikiauthbot_db::ServerSettingsData;
 use crate::{integrity, Command, Context, Result};
 
 mod auth;
+mod deauth;
 mod revwhois;
 pub mod whois;
 

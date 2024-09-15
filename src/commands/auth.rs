@@ -150,7 +150,9 @@ pub async fn auth(ctx: Context<'_>) -> Result {
         .await?;
     // https://www.mediawiki.org/wiki/OAuth/For_Developers
     let client_id = &*config.oauth_consumer_key;
-    let url = format!("https://meta.wikimedia.org/w/rest.php/oauth2/authorize?response_type=code&client_id={client_id}&state={state}");
+    let url = format!(
+        "https://meta.wikimedia.org/w/rest.php/oauth2/authorize?response_type=code&client_id={client_id}&state={state}"
+    );
 
     let auth = msg!(db, "auth", url = url)?;
     ctx.send(
