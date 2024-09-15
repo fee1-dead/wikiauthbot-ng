@@ -320,10 +320,16 @@ pub(crate) async fn whois_bench(ctx: Context<'_>, guild: GuildId, user: Option<U
     }
 
     let start = Instant::now();
-    let res = ctx.data().db.in_guild(guild).whois(user.unwrap_or(ctx.author().id).get()).await;
+    let res = ctx
+        .data()
+        .db
+        .in_guild(guild)
+        .whois(user.unwrap_or(ctx.author().id).get())
+        .await;
     let elapsed = start.elapsed();
 
-    ctx.reply(format!("elapsed {elapsed:?} for result {res:?}")).await?;
+    ctx.reply(format!("elapsed {elapsed:?} for result {res:?}"))
+        .await?;
 
     Ok(())
 }

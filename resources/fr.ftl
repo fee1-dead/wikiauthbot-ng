@@ -56,6 +56,11 @@ whois = Discord : {$mention}
     Wiki d’origine : {$home}
     {$global_groups}Total des contributions : {$edits}
 
+deauth = Are you sure you want to remove your authentication from this server?
+deauth_more = You are currently authenticated to {$num_servers_authed} servers. Would you like to remove data from only this server, or from all servers?
+deauth_more_single = Delete from only this server
+deauth_more_multi = Delete from all servers I am in
+
 # These are currently unused for now. Please still translate this if possible!
 server_auth_success = Succès ! Informations d'autorisation envoyées au bot :)
 server_auth_expired = La demande d'authentification a expiré ou n'est pas valide.
