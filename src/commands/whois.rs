@@ -5,6 +5,8 @@ use color_eyre::eyre::{Context as _, OptionExt};
 use poise::CreateReply;
 use serenity::all::{GuildId, Mention, User, UserId};
 use serenity::builder::{CreateEmbed, CreateEmbedFooter};
+use serenity::model::Timestamp;
+use serenity::utils::{FormattedTimestamp, FormattedTimestampStyle};
 use wikiauthbot_db::{msg, DatabaseConnectionInGuild, WhoisResult};
 
 use crate::{Context, Result};
@@ -81,11 +83,9 @@ impl WhoisInfo {
         db: DatabaseConnectionInGuild<'_>,
     ) -> Result<CreateEmbed> {
         let mention = Mention::User(discord_user_id).to_string();
-        let registration = self
-            .registration
-            .split_once("T")
-            .ok_or_eyre("invalid date")?
-            .0;
+
+        let registration = Timestamp::parse(&self.registration)?;
+        let formatted = FormattedTimestamp::new(registration, Option::from(FormattedTimestampStyle::ShortDate));
 
         let global_groups = if !self.groups.is_empty() {
             let mut msg = msg!(
@@ -129,7 +129,7 @@ impl WhoisInfo {
             db,
             "whois",
             mention = mention,
-            registration = registration,
+            registration = formatted,
             home = self.home,
             global_groups = global_groups,
             edits = edits,
