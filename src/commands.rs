@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use color_eyre::eyre::Context;
 use poise::CreateReply;
 use serenity::all::{ChannelId, GuildId, RoleId, UserId};
 use serenity::futures::TryStreamExt;
@@ -55,6 +56,7 @@ pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
     if !db.has_server_settings() {
         ctx.reply("This server was not set up. Please contact dbeef to set it up first.")
             .await?;
+        return Ok(());
     }
     let auth_role = db.authenticated_role_id().unwrap();
     let role_id = RoleId::from(auth_role);
