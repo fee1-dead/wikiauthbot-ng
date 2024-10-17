@@ -16,6 +16,11 @@ pub struct LocaleInfo {
 
 const LOCALES: &'static [LocaleInfo] = &[
     LocaleInfo {
+        name: "da",
+        lang: langid!("da"),
+        file: include_str!("../../resources/da.ftl"),
+    },
+    LocaleInfo {
         name: "de",
         lang: langid!("de"),
         file: include_str!("../../resources/de.ftl"),
@@ -39,6 +44,11 @@ const LOCALES: &'static [LocaleInfo] = &[
         name: "pl",
         lang: langid!("pl"),
         file: include_str!("../../resources/pl.ftl"),
+    },
+    LocaleInfo {
+        name: "ru",
+        lang: langid!("ru"),
+        file: include_str!("../../resources/ru.ftl"),
     },
     LocaleInfo {
         name: "uk",
