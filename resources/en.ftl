@@ -37,7 +37,7 @@ welcome_has_auth = Welcome {$mention}! You've already authenticated as [{$name}]
 
 welcome_has_auth_failed = Welcome {$mention}! You've already authenticated (error while trying to fetch info!), so you don't need to authenticate again.
 
-welcome = Welcome {$mention}! If you would like to authenticate (validate) your Wikimedia account, please type or click </auth:1241068923730919464>
+welcome = Welcome {$mention}! If you would like to authenticate (publicly link) your Wikimedia account, please type or click </auth:1241068923730919464>
 
 whois_global_groups = Global groups: {$groupslist}
 
