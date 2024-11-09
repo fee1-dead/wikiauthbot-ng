@@ -1,6 +1,5 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use color_eyre::eyre::Context;
 use poise::CreateReply;
 use serenity::all::{ChannelId, GuildId, RoleId, UserId};
 use serenity::futures::TryStreamExt;
@@ -439,6 +438,29 @@ pub async fn debug_deauth(ctx: Context<'_>, user_id: UserId, guild_id: Option<Gu
 
     Ok(())
 }
+
+/*
+#[poise::command(prefix_command, owners_only, dm_only, hide_in_help)]
+pub async fn stats(ctx: Context<'_>) -> Result {
+    ctx.defer_ephemeral().await?;
+    let mut target = None;
+    let mut nguilds = 0;
+    let mut nusers = 0;
+    loop {
+        let guilds = ctx.serenity_context().http.get_guilds(target, None).await.wrap_err("Unable to fetch guilds")?;
+        if guilds.is_empty() {
+            break;
+        }
+        nguilds += guilds.len();
+        target = Some(GuildPagination::After(guilds.last().unwrap().id));
+        for guild in guilds {
+
+        }
+
+    }
+    Ok(())
+}
+*/
 
 pub fn all_commands() -> Vec<Command> {
     vec![
