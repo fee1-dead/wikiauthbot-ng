@@ -37,7 +37,7 @@ welcome_has_auth = 欢迎， {$mention}！您已成功验证为[{$name}](<{$user
 
 welcome_has_auth_failed = 欢迎， {$mention}！您已成功验证为（无法获取用户相关信息！），因此您不需要重复验证。
 
-welcome = 欢迎， {$mention}！如果您希望验证（绑定）您的维基媒体账户，请输入 </auth:1241068923730919464>
+welcome = 欢迎， {$mention}！如果您希望验证（公开关联）您的维基媒体账户，请输入或点击 </auth:1241068923730919464>
 
 whois_global_groups = 全域用户组: {$groupslist}
 
