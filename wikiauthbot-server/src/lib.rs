@@ -25,7 +25,7 @@ struct AccessTokenResponse {
 
 #[derive(serde::Deserialize)]
 struct UserProfileResponse {
-    sub: u32,
+    sub: String,
     username: String,
 }
 
@@ -108,6 +108,11 @@ async fn authorize(
     let Ok(UserProfileResponse { sub, username }) = res.json().await else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
             .body("error while parsing user profile");
+    };
+
+    let Ok(sub) = sub.parse::<u32>() else {
+        return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
+        .body("error while parsing user id");
     };
 
     let success = auth_req.into_successful(sub, username);
