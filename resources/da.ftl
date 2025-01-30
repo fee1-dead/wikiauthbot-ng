@@ -43,6 +43,7 @@ whois_global_groups = Globale grupper: {$groupslist}
 
 whois_blocked = **BLOCKED**
 whois_locked = **LOCKED**
+whois_pblocked = partially blocked
 whois_edits = Redigeringer: {$edits}
 whois_groups = Grupper: {$groupslist}
 whois_overflow = Anført kun op til 10. Klik på deres navn øverst for at se alle oplysninger.
@@ -53,6 +54,21 @@ whois = Discord: {$mention}
     Registreret: {$registration}
     Hjem: {$home}
     {$global_groups}Samlet antal redigeringer: {$edits}
+
+cancel = cancel
+
+deauth = Are you sure you want to remove your authentication from this server?
+deauth_canceled = Deauthentication canceled.
+deauth_expired = Deauthentication expired.
+deauth_not_found = You are currently not authenticated to this server. Run this command in a server where you are authenticated.
+deauth_done = Successfully removed authentication data.
+deauth_more = You are currently authenticated to {$num_servers_authed} servers. Would you like to remove data from only this server, or from all {$num_servers_authed} servers?
+deauth_more_single = Delete from only this server
+deauth_more_single_done = Successfully removed authentication data from this server.
+deauth_more_multi = Delete from all servers I am in
+deauth_more_multi_done = Successfully removed authentication data from {$num_servers_authed} servers.
+deauth_log = {$mention} has deauthenticated from this server.
+deauth_audit_log = Deauthenticated
 
 # These are currently unused for now. Please still translate this if possible!
 server_auth_success = Succes! Autorisationsoplysninger sendt til botten :)

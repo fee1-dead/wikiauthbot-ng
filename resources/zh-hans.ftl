@@ -43,6 +43,7 @@ whois_global_groups = 全域用户组: {$groupslist}
 
 whois_blocked = **已封禁**
 whois_locked = **已锁定**
+whois_pblocked = partially blocked
 whois_edits = 编辑数: {$edits}
 whois_groups = 用户组: {$groupslist}
 whois_overflow = 最多显示10条最大记录。欲获取全部信息，请点击顶端的用户名。
@@ -54,10 +55,20 @@ whois = Discord用户名: {$mention}
     家维基: {$home}
     {$global_groups}全域编辑数: {$edits}
 
+cancel = cancel
+
 deauth = Are you sure you want to remove your authentication from this server?
-deauth_more = You are currently authenticated to {$num_servers_authed} servers. Would you like to remove data from only this server, or from all servers?
+deauth_canceled = Deauthentication canceled.
+deauth_expired = Deauthentication expired.
+deauth_not_found = You are currently not authenticated to this server. Run this command in a server where you are authenticated.
+deauth_done = Successfully removed authentication data.
+deauth_more = You are currently authenticated to {$num_servers_authed} servers. Would you like to remove data from only this server, or from all {$num_servers_authed} servers?
 deauth_more_single = Delete from only this server
+deauth_more_single_done = Successfully removed authentication data from this server.
 deauth_more_multi = Delete from all servers I am in
+deauth_more_multi_done = Successfully removed authentication data from {$num_servers_authed} servers.
+deauth_log = {$mention} has deauthenticated from this server.
+deauth_audit_log = Deauthenticated
 
 # These are currently unused for now. Please still translate this if possible!
 server_auth_success = 成功！验证信息已发送给机器人。

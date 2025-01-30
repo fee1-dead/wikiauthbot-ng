@@ -43,6 +43,7 @@ whois_global_groups = Grupos globales: {$groupslist}
 
 whois_blocked = **BLOQUEADO**
 whois_locked = **DESHABILITADO**
+whois_pblocked = partially blocked
 whois_edits = Ediciones: {$edits}
 whois_groups = Grupos: {$groupslist}
 whois_overflow = Limitado a 10 proyectos. Da clic en su nombre al principio para observar toda la información.
@@ -54,10 +55,20 @@ whois = Discord: {$mention}
     Proyecto principal: {$home}
     {$global_groups}Ediciones totales: {$edits}
 
+cancel = cancel
+
 deauth = Are you sure you want to remove your authentication from this server?
-deauth_more = You are currently authenticated to {$num_servers_authed} servers. Would you like to remove data from only this server, or from all servers?
+deauth_canceled = Deauthentication canceled.
+deauth_expired = Deauthentication expired.
+deauth_not_found = You are currently not authenticated to this server. Run this command in a server where you are authenticated.
+deauth_done = Successfully removed authentication data.
+deauth_more = You are currently authenticated to {$num_servers_authed} servers. Would you like to remove data from only this server, or from all {$num_servers_authed} servers?
 deauth_more_single = Delete from only this server
+deauth_more_single_done = Successfully removed authentication data from this server.
 deauth_more_multi = Delete from all servers I am in
+deauth_more_multi_done = Successfully removed authentication data from {$num_servers_authed} servers.
+deauth_log = {$mention} has deauthenticated from this server.
+deauth_audit_log = Deauthenticated
 
 # These are currently unused for now. Please still translate this if possible!
 server_auth_success = ¡Éxito! Información relacionada a la autenticación ha sido enviada al bot :)
