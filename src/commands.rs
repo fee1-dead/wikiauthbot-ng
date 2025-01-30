@@ -468,6 +468,7 @@ pub fn all_commands() -> Vec<Command> {
         register(),
         setup_server(),
         auth::auth(),
+        deauth::deauth(),
         whois::whois(),
         whois::whois_menu(),
         whois::whois_bench(),
