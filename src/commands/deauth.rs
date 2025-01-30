@@ -161,7 +161,7 @@ pub async fn deauth(ctx: Context<'_>) -> Result {
     } else {
         // prompt how they want their data deleted
         // "Are you sure you want to remove your authentication from this server?"
-        let msg = msg!(db, "deauth_more")?;
+        let msg = msg!(db, "deauth_more", num_servers_authed = num_guilds)?;
         let full = msg!(db, "deauth_more_multi")?;
         let partial = msg!(db, "deauth_more_single")?;
         let no = msg!(db, "cancel")?;
