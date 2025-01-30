@@ -2,8 +2,7 @@ use std::time::Duration;
 
 use poise::CreateReply;
 use serenity::all::{
-    Builder, ButtonStyle, ComponentInteractionCollector, CreateActionRow, CreateButton,
-    CreateInteractionResponse, UserId,
+    Builder, ButtonStyle, ChannelId, ComponentInteractionCollector, CreateActionRow, CreateButton, CreateInteractionResponse, CreateMessage, GuildId, Mentionable, RoleId, UserId
 };
 use serenity::builder::EditInteractionResponse;
 use tokio::spawn;
@@ -20,11 +19,26 @@ pub async fn handle_interactions(
     cont_token: String,
 ) -> color_eyre::Result<()> {
     if let Ok(Some(interaction)) = timeout(Duration::from_secs(120), rxns.next()).await {
-        match &*interaction.data.custom_id {
+        interaction
+            .create_response(&ctx, CreateInteractionResponse::Acknowledge)
+            .await?;
+        let command = &*interaction.data.custom_id;
+        match command {
             "full_multi" => {
-                interaction
-                    .create_response(&ctx, CreateInteractionResponse::Acknowledge)
-                    .await?;
+                // do stuff on discord side first, before removing from db.
+                let guilds = db.get_user_authed_guilds(discord_user_id.get()).await?;
+                for guild in guilds {
+                    let guild = GuildId::new(guild);
+                    let db = db.in_guild(guild);
+                    if let Some(role) = db.authenticated_role_id() {
+                        let msg = msg!(db, "deauth_audit_log")?;
+                        ctx.http.remove_member_role(guild, discord_user_id, RoleId::from(role), Some(&msg)).await?;
+                    }
+                    if let Some(chan) = db.deauth_log_channel_id() {
+                        let msg = msg!(db, "deauth_log", mention = discord_user_id.mention().to_string())?;
+                        ChannelId::from(chan).send_message(&ctx, CreateMessage::new().content(msg)).await?;
+                    }
+                }
                 let (_, num_servers_authed) = db.full_deauth(discord_user_id.get()).await?;
                 let newmsg = EditInteractionResponse::new()
                     .content(msg!(db, "deauth_more_multi_done", num_servers_authed = num_servers_authed)?)
@@ -32,24 +46,26 @@ pub async fn handle_interactions(
                 newmsg.execute(&ctx, &cont_token).await?;
                 return Ok(());
             }
-            "yes_single" => {
-                interaction
-                    .create_response(&ctx, CreateInteractionResponse::Acknowledge)
-                    .await?;
-                db.full_deauth(discord_user_id.get()).await?;
+            "yes_single" | "partial" => {
+                // do stuff on discord side first, before removing from db.
+                if let Some(role) = db.authenticated_role_id() {
+                    let guild = GuildId::from(db.guild_id());
+                    let msg = msg!(db, "deauth_audit_log")?;
+                    ctx.http.remove_member_role(guild, discord_user_id, RoleId::from(role), Some(&msg)).await?;
+                }
+                if let Some(chan) = db.deauth_log_channel_id() {
+                    let msg = msg!(db, "deauth_log", mention = discord_user_id.mention().to_string())?;
+                    ChannelId::from(chan).send_message(&ctx, CreateMessage::new().content(msg)).await?;
+                }
+                let message = if command == "partial" {
+                    db.partial_deauth(discord_user_id.get()).await?;
+                    msg!(db, "deauth_more_single_done")?
+                } else {
+                    db.full_deauth(discord_user_id.get()).await?;
+                    msg!(db, "deauth_done")?
+                };
                 let newmsg = EditInteractionResponse::new()
-                    .content(msg!(db, "deauth_done")?)
-                    .components(vec![]);
-                newmsg.execute(&ctx, &cont_token).await?;
-                return Ok(());
-            }
-            "partial" => {
-                interaction
-                    .create_response(&ctx, CreateInteractionResponse::Acknowledge)
-                    .await?;
-                db.partial_deauth(discord_user_id.get()).await?;
-                let newmsg = EditInteractionResponse::new()
-                    .content(msg!(db, "deauth_more_single_done")?)
+                    .content(message)
                     .components(vec![]);
                 newmsg.execute(&ctx, &cont_token).await?;
                 return Ok(());
@@ -59,9 +75,6 @@ pub async fn handle_interactions(
                     .content(msg!(db, "deauth_canceled")?)
                     .components(vec![]);
                 newmsg.execute(&ctx, &cont_token).await?;
-                interaction
-                    .create_response(&ctx, CreateInteractionResponse::Acknowledge)
-                    .await?;
                 return Ok(());
             }
             id => tracing::error!("invalid custom id: {id}"),
