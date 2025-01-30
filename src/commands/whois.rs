@@ -5,6 +5,7 @@ use color_eyre::eyre::{Context as _, OptionExt};
 use poise::CreateReply;
 use serenity::all::{GuildId, Mention, User, UserId};
 use serenity::builder::{CreateEmbed, CreateEmbedFooter};
+use wikiauthbot_common::mwclient_with_url;
 use wikiauthbot_db::{msg, DatabaseConnectionInGuild, WhoisResult};
 
 use crate::{Context, Result};
@@ -54,6 +55,8 @@ pub struct BlockInfo {
 #[derive(serde::Deserialize)]
 pub struct WikiInfo {
     wiki: String,
+    url: String,
+    id: u64,
     blocked: Option<BlockInfo>,
     editcount: u64,
     #[serde(default)]
@@ -72,6 +75,11 @@ pub struct WhoisInfo {
     #[serde(default)]
     locked: bool,
     merged: Vec<WikiInfo>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct BlockFlags {
+    partial: bool,
 }
 
 impl WhoisInfo {
@@ -122,7 +130,10 @@ impl WhoisInfo {
             }
 
             fields.push((wiki.wiki.clone(), content, inline));
-            blocks.push(wiki.blocked.zip(Some(wiki.wiki)));
+            if let Some(blocked) = wiki.blocked {
+                let blockflags = fetch_block(&wiki.url, &self.name).await?;
+                blocks.push((wiki.wiki, blocked, blockflags));
+            }
         }
 
         let mut whois = msg!(
@@ -135,32 +146,49 @@ impl WhoisInfo {
             edits = edits,
         )?;
 
-        let mut blocked = false;
         let btext = msg!(db, "whois_blocked")?;
+        let pbtext = msg!(db, "whois_pblocked")?;
         let ltext = msg!(db, "whois_locked")?;
         let mb = whois.to_mut();
-        for (block, wiki) in blocks.into_iter().flatten() {
-            if !blocked {
-                mb.push_str(&format!(
-                    "\n\n<:declined:359850777453264906> {btext}{}\n",
-                    if self.locked {
-                        format!(" {ltext}")
-                    } else {
-                        String::new()
-                    }
-                ));
-                blocked = true;
-            }
+        let has_blocks = !blocks.is_empty();
+        if has_blocks {
+            let partial = blocks.iter().flat_map(|(_, _, flags)| flags).into_iter().all(|flags| flags.partial);
+            let icon = if partial && !self.locked {
+                "<:possilikely:936065888237547541>"
+            } else {
+                "<:declined:359850777453264906>"
+            };
+
+            mb.push_str(&format!(
+                "\n\n{icon} {}{}\n",
+                if partial {
+                    &pbtext
+                } else {
+                    &btext
+                },
+                if self.locked {
+                    format!(" {ltext}")
+                } else {
+                    String::new()
+                }
+            ));
+        }
+        for (wiki, block, flags) in blocks.into_iter() {
+            let partial = flags.into_iter().all(|flags| flags.partial);
             let reason = if block.reason.is_empty() {
                 &*db.get_message("whois_no_block_reason").await?
             } else {
                 &block.reason
             };
-            mb.push_str(&format!("**{wiki}** ({})\n", block.expiry));
+            mb.push_str(&format!("**{wiki}** ({}){}\n", block.expiry, if partial {
+                format!(" ({pbtext})")
+            } else {
+                String::new()
+            }));
             mb.push_str(&format!("__{reason}__\n"));
         }
 
-        if !blocked && self.locked {
+        if !has_blocks && self.locked {
             mb.push_str(&format!("\n\n<:declined:359850777453264906> {ltext}\n"));
         }
 
@@ -211,6 +239,23 @@ pub async fn fetch_whois(client: &mwapi::Client, wikimedia_id: u32) -> Result<Wh
         ])
         .await
         .wrap_err("querying API")?["query"]["globaluserinfo"]
+        .take();
+
+    serde_json::from_value(v).map_err(Into::into)
+}
+
+/// url in the form of `"https://en.wikipedia.org"`
+pub async fn fetch_block(url: &str, name: &str) -> Result<Vec<BlockFlags>> {
+    let url = format!("{url}/w/api.php");
+    let v = mwclient_with_url(&url).await?
+        .get_value(&[
+            ("action", "query"),
+            ("list", "blocks"),
+            ("bkusers", name),
+            ("bkprop", "flags"),
+        ])
+        .await
+        .wrap_err("querying API")?["query"]["blocks"]
         .take();
 
     serde_json::from_value(v).map_err(Into::into)

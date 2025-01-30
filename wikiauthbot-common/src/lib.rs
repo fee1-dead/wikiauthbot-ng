@@ -9,11 +9,16 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
 pub async fn mwclient() -> mwapi::Result<mwapi::Client> {
-    mwapi::Client::builder("https://meta.wikimedia.org/w/api.php")
+    mwclient_with_url("https://meta.wikimedia.org/w/api.php").await
+}
+
+pub async fn mwclient_with_url(url: &str) -> mwapi::Result<mwapi::Client> {
+    mwapi::Client::builder(url)
         .set_user_agent(concat!("wikiauthbot-ng/{}", env!("CARGO_PKG_VERSION")))
         .build()
         .await
 }
+
 
 pub fn setup_common() -> color_eyre::Result<()> {
     color_eyre::install()?;

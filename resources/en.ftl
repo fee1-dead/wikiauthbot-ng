@@ -43,6 +43,7 @@ whois_global_groups = Global groups: {$groupslist}
 
 whois_blocked = **BLOCKED**
 whois_locked = **LOCKED**
+whois_pblocked = partially blocked
 whois_edits = Edits: {$edits}
 whois_groups = Groups: {$groupslist}
 whois_overflow = Only up to 10 max listed. Click their name at the top to see all info.
