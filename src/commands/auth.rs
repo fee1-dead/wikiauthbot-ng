@@ -143,7 +143,6 @@ pub async fn auth(ctx: Context<'_>) -> Result {
         return Ok(()); // TODO move this somewhere else
     }
 
-    // TODO implement expiry message (for people that actually have not authed) here.
     let authreq = AuthRequest::new(user_id.into(), guild_id.into());
     let state = authreq.state();
     db.record_auth_req(&state, user_id.into(), guild_id.into())
