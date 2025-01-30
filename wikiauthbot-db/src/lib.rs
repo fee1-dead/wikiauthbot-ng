@@ -67,6 +67,16 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         )
     }
 
+    pub async fn get_user_authed_guilds(&self, user_id: u64) -> color_eyre::Result<Vec<u64>> {
+        Ok(
+            sqlx::query("select guild_id from auths where user_id = ?")
+                .bind(user_id)
+                .map(|row| row.get(0))
+                .fetch_all(&self.sql)
+                .await?
+        )
+    }
+
     pub async fn get_message(&self, key: &str) -> color_eyre::Result<Cow<'static, str>> {
         let lang = self.server_language();
         wikiauthbot_common::i18n::get_message(lang, key)
@@ -252,6 +262,13 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         self.server_settings
             .as_ref()
             .map(|data: &ServerSettingsData| data.auth_log_channel_id)
+            .and_then(NonZeroU64::new)
+    }
+
+    pub fn deauth_log_channel_id(&self) -> Option<NonZeroU64> {
+        self.server_settings
+            .as_ref()
+            .map(|data: &ServerSettingsData| data.deauth_log_channel_id)
             .and_then(NonZeroU64::new)
     }
 
