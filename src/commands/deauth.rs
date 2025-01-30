@@ -122,6 +122,7 @@ pub async fn deauth(ctx: Context<'_>) -> Result {
     let user_id = ctx.author().id;
     if db.whois(user_id.get()).await?.is_none() {
         ctx.reply(msg!(db, "deauth_not_found")?).await?;
+        return Ok(())
     }
 
     let num_guilds = db.count_guilds_authed_to(user_id.get()).await?;
