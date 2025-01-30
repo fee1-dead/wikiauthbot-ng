@@ -117,6 +117,7 @@ pub async fn handle_interactions(
 /// Deauthenticate or remove your data from the bot.
 #[poise::command(slash_command, guild_only = true)]
 pub async fn deauth(ctx: Context<'_>) -> Result {
+    ctx.defer_ephemeral().await?;
     let db = ctx.data().db_guild(&ctx);
     let user_id = ctx.author().id;
     if db.whois(user_id.get()).await?.is_none() {
