@@ -56,7 +56,6 @@ pub struct BlockInfo {
 pub struct WikiInfo {
     wiki: String,
     url: String,
-    id: u64,
     blocked: Option<BlockInfo>,
     editcount: u64,
     #[serde(default)]
