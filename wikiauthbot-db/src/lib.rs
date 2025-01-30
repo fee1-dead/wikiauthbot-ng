@@ -58,23 +58,21 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     }
 
     pub async fn count_guilds_authed_to(&self, user_id: u64) -> color_eyre::Result<u64> {
-        Ok(
+        let cnt: i64 =
             sqlx::query("select count(guild_id) as num_guilds from auths where user_id = ?")
                 .bind(user_id)
                 .fetch_one(&self.sql)
                 .await?
-                .try_get(0)?,
-        )
+                .try_get(0)?;
+        Ok(cnt as u64)
     }
 
     pub async fn get_user_authed_guilds(&self, user_id: u64) -> color_eyre::Result<Vec<u64>> {
-        Ok(
-            sqlx::query("select guild_id from auths where user_id = ?")
-                .bind(user_id)
-                .map(|row| row.get(0))
-                .fetch_all(&self.sql)
-                .await?
-        )
+        Ok(sqlx::query("select guild_id from auths where user_id = ?")
+            .bind(user_id)
+            .map(|row| row.get(0))
+            .fetch_all(&self.sql)
+            .await?)
     }
 
     pub async fn get_message(&self, key: &str) -> color_eyre::Result<Cow<'static, str>> {

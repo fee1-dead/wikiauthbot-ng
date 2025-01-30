@@ -11,7 +11,7 @@ use serenity::builder::{CreateEmbed, CreateEmbedFooter, EditInteractionResponse}
 use tokio::spawn;
 use tokio::time::timeout;
 use wikiauthbot_common::{AuthRequest, SuccessfulAuth};
-use wikiauthbot_db::{msg, DatabaseConnectionInGuild};
+use wikiauthbot_db::{DatabaseConnectionInGuild, msg};
 
 use crate::{Context, Result};
 

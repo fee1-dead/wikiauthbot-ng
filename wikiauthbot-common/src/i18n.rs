@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use color_eyre::eyre::{bail, ContextCompat};
+use color_eyre::eyre::{ContextCompat, bail};
 pub use fluent;
 use fluent::concurrent::FluentBundle;
 use fluent::{FluentArgs, FluentResource};

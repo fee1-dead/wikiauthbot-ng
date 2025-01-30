@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use actix_web::dev::Server;
 use actix_web::http::StatusCode;
-use actix_web::{get, web, App, HttpResponseBuilder, HttpServer, Responder};
+use actix_web::{App, HttpResponseBuilder, HttpServer, Responder, get, web};
 use reqwest::{Client, ClientBuilder};
 use wikiauthbot_common::Config;
 use wikiauthbot_db::DatabaseConnection;
@@ -112,7 +112,7 @@ async fn authorize(
 
     let Ok(sub) = sub.parse::<u32>() else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-        .body("error while parsing user id");
+            .body("error while parsing user id");
     };
 
     let success = auth_req.into_successful(sub, username);

@@ -5,7 +5,7 @@ use serenity::all::{ChannelId, GuildId, RoleId, UserId};
 use serenity::futures::TryStreamExt;
 use wikiauthbot_db::ServerSettingsData;
 
-use crate::{integrity, Command, Context, Result};
+use crate::{Command, Context, Result, integrity};
 
 mod auth;
 mod deauth;

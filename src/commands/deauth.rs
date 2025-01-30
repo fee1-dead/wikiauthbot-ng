@@ -2,12 +2,13 @@ use std::time::Duration;
 
 use poise::CreateReply;
 use serenity::all::{
-    Builder, ButtonStyle, ChannelId, ComponentInteractionCollector, CreateActionRow, CreateButton, CreateInteractionResponse, CreateMessage, GuildId, Mentionable, RoleId, UserId
+    Builder, ButtonStyle, ChannelId, ComponentInteractionCollector, CreateActionRow, CreateButton,
+    CreateInteractionResponse, CreateMessage, GuildId, Mentionable, RoleId, UserId,
 };
 use serenity::builder::EditInteractionResponse;
 use tokio::spawn;
 use tokio::time::timeout;
-use wikiauthbot_db::{msg, DatabaseConnectionInGuild};
+use wikiauthbot_db::{DatabaseConnectionInGuild, msg};
 
 use crate::{Context, Result};
 
@@ -32,16 +33,33 @@ pub async fn handle_interactions(
                     let db = db.in_guild(guild);
                     if let Some(role) = db.authenticated_role_id() {
                         let msg = msg!(db, "deauth_audit_log")?;
-                        ctx.http.remove_member_role(guild, discord_user_id, RoleId::from(role), Some(&msg)).await?;
+                        ctx.http
+                            .remove_member_role(
+                                guild,
+                                discord_user_id,
+                                RoleId::from(role),
+                                Some(&msg),
+                            )
+                            .await?;
                     }
                     if let Some(chan) = db.deauth_log_channel_id() {
-                        let msg = msg!(db, "deauth_log", mention = discord_user_id.mention().to_string())?;
-                        ChannelId::from(chan).send_message(&ctx, CreateMessage::new().content(msg)).await?;
+                        let msg = msg!(
+                            db,
+                            "deauth_log",
+                            mention = discord_user_id.mention().to_string()
+                        )?;
+                        ChannelId::from(chan)
+                            .send_message(&ctx, CreateMessage::new().content(msg))
+                            .await?;
                     }
                 }
                 let (_, num_servers_authed) = db.full_deauth(discord_user_id.get()).await?;
                 let newmsg = EditInteractionResponse::new()
-                    .content(msg!(db, "deauth_more_multi_done", num_servers_authed = num_servers_authed)?)
+                    .content(msg!(
+                        db,
+                        "deauth_more_multi_done",
+                        num_servers_authed = num_servers_authed
+                    )?)
                     .components(vec![]);
                 newmsg.execute(&ctx, &cont_token).await?;
                 return Ok(());
@@ -51,11 +69,19 @@ pub async fn handle_interactions(
                 if let Some(role) = db.authenticated_role_id() {
                     let guild = GuildId::from(db.guild_id());
                     let msg = msg!(db, "deauth_audit_log")?;
-                    ctx.http.remove_member_role(guild, discord_user_id, RoleId::from(role), Some(&msg)).await?;
+                    ctx.http
+                        .remove_member_role(guild, discord_user_id, RoleId::from(role), Some(&msg))
+                        .await?;
                 }
                 if let Some(chan) = db.deauth_log_channel_id() {
-                    let msg = msg!(db, "deauth_log", mention = discord_user_id.mention().to_string())?;
-                    ChannelId::from(chan).send_message(&ctx, CreateMessage::new().content(msg)).await?;
+                    let msg = msg!(
+                        db,
+                        "deauth_log",
+                        mention = discord_user_id.mention().to_string()
+                    )?;
+                    ChannelId::from(chan)
+                        .send_message(&ctx, CreateMessage::new().content(msg))
+                        .await?;
                 }
                 let message = if command == "partial" {
                     db.partial_deauth(discord_user_id.get()).await?;
@@ -118,10 +144,12 @@ pub async fn deauth(ctx: Context<'_>) -> Result {
                 CreateButton::new("yes_single")
                     .label(yes)
                     .style(ButtonStyle::Danger),
-                CreateButton::new("no").label(no).style(ButtonStyle::Secondary),
+                CreateButton::new("no")
+                    .label(no)
+                    .style(ButtonStyle::Secondary),
             ])]);
         let msg = ctx.send(reply).await?.into_message().await?;
-        let db = ctx.data().db.clone(); 
+        let db = ctx.data().db.clone();
         let ctx = ctx.serenity_context().clone();
         let rxns = msg.await_component_interaction(&ctx);
         spawn(async move {
@@ -146,10 +174,12 @@ pub async fn deauth(ctx: Context<'_>) -> Result {
                 CreateButton::new("partial")
                     .label(partial)
                     .style(ButtonStyle::Danger),
-                CreateButton::new("no").label(no).style(ButtonStyle::Secondary),
+                CreateButton::new("no")
+                    .label(no)
+                    .style(ButtonStyle::Secondary),
             ])]);
         let msg = ctx.send(reply).await?.into_message().await?;
-        let db = ctx.data().db.clone(); 
+        let db = ctx.data().db.clone();
         let ctx = ctx.serenity_context().clone();
         let rxns = msg.await_component_interaction(&ctx);
         spawn(async move {

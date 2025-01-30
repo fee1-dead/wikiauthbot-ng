@@ -6,7 +6,7 @@ use poise::CreateReply;
 use serenity::all::{GuildId, Mention, User, UserId};
 use serenity::builder::{CreateEmbed, CreateEmbedFooter};
 use wikiauthbot_common::mwclient_with_url;
-use wikiauthbot_db::{msg, DatabaseConnectionInGuild, WhoisResult};
+use wikiauthbot_db::{DatabaseConnectionInGuild, WhoisResult, msg};
 
 use crate::{Context, Result};
 
@@ -151,7 +151,11 @@ impl WhoisInfo {
         let mb = whois.to_mut();
         let has_blocks = !blocks.is_empty();
         if has_blocks {
-            let partial = blocks.iter().flat_map(|(_, _, flags)| flags).into_iter().all(|flags| flags.partial);
+            let partial = blocks
+                .iter()
+                .flat_map(|(_, _, flags)| flags)
+                .into_iter()
+                .all(|flags| flags.partial);
             let icon = if partial && !self.locked {
                 "<:possilikely:936065888237547541>"
             } else {
@@ -160,11 +164,7 @@ impl WhoisInfo {
 
             mb.push_str(&format!(
                 "\n\n{icon} {}{}\n",
-                if partial {
-                    &pbtext
-                } else {
-                    &btext
-                },
+                if partial { &pbtext } else { &btext },
                 if self.locked {
                     format!(" {ltext}")
                 } else {
@@ -179,11 +179,15 @@ impl WhoisInfo {
             } else {
                 &block.reason
             };
-            mb.push_str(&format!("**{wiki}** ({}){}\n", block.expiry, if partial {
-                format!(" ({pbtext})")
-            } else {
-                String::new()
-            }));
+            mb.push_str(&format!(
+                "**{wiki}** ({}){}\n",
+                block.expiry,
+                if partial {
+                    format!(" ({pbtext})")
+                } else {
+                    String::new()
+                }
+            ));
             mb.push_str(&format!("__{reason}__\n"));
         }
 
@@ -246,7 +250,8 @@ pub async fn fetch_whois(client: &mwapi::Client, wikimedia_id: u32) -> Result<Wh
 /// url in the form of `"https://en.wikipedia.org"`
 pub async fn fetch_block(url: &str, name: &str) -> Result<Vec<BlockFlags>> {
     let url = format!("{url}/w/api.php");
-    let v = mwclient_with_url(&url).await?
+    let v = mwclient_with_url(&url)
+        .await?
         .get_value(&[
             ("action", "query"),
             ("list", "blocks"),

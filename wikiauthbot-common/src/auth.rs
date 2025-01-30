@@ -1,7 +1,7 @@
 use std::fmt::Display;
 use std::num::NonZeroU64;
 
-use color_eyre::eyre::{bail, ContextCompat};
+use color_eyre::eyre::{ContextCompat, bail};
 
 struct AuthInfo {
     /// discord user id who initiated this auth request.
