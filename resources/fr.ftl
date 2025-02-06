@@ -59,18 +59,18 @@ whois = Discord : {$mention}
 
 cancel = cancel
 
-deauth = Are you sure you want to remove your authentication from this server?
-deauth_canceled = Deauthentication canceled.
-deauth_expired = Deauthentication expired.
-deauth_not_found = You are currently not authenticated to this server. Run this command in a server where you are authenticated.
-deauth_done = Successfully removed authentication data.
-deauth_more = You are currently authenticated to {$num_servers_authed} servers. Would you like to remove data from only this server, or from all {$num_servers_authed} servers?
-deauth_more_single = Delete from only this server
-deauth_more_single_done = Successfully removed authentication data from this server.
-deauth_more_multi = Delete from all servers I am in
-deauth_more_multi_done = Successfully removed authentication data from {$num_servers_authed} servers.
-deauth_log = {$mention} has deauthenticated from this server.
-deauth_audit_log = Deauthenticated
+deauth = Etes-vous sûr de vouloir supprimer votre authentification de ce serveur ?
+deauth_canceled = Désauthentification annulée.
+deauth_expired = Désauthentification expirée.
+deauth_not_found = Vous n'êtes actuellement pas authentifié·ée sur ce serveur. Exécutez cette commande sur un serveur où vous êtes authentifié·ée.
+deauth_done = Données d'authentification supprimées avec succès.
+deauth_more = Vous êtes actuellement authentifié·ée sur {$num_servers_authed} serveurs. Souhaitez-vous supprimer les données de ce serveur uniquement ou des {$num_servers_authed} serveurs ?
+deauth_more_single = Supprimer uniquement de ce serveur
+deauth_more_single_done = Suppression réussie des données d'authentification de ce serveur.
+deauth_more_multi = Supprimer de tous les serveurs où je me trouve
+deauth_more_multi_done = Suppression réussie des données d'authentification des {$num_servers_authed} serveurs.
+deauth_log = {$mention} s'est désauthentifié·ée de ce serveur.
+deauth_audit_log = Désauthentifié·ée
 
 # These are currently unused for now. Please still translate this if possible!
 server_auth_success = Succès ! Informations d'autorisation envoyées au bot :)
