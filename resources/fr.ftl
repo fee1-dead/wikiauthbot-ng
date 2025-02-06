@@ -57,7 +57,7 @@ whois = Discord : {$mention}
     Wiki d’origine : {$home}
     {$global_groups}Total des contributions : {$edits}
 
-cancel = cancel
+cancel = Annuler
 
 deauth = Are you sure you want to remove your authentication from this server?
 deauth_canceled = Deauthentication canceled.
