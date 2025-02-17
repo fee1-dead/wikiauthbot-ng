@@ -143,10 +143,19 @@ pub async fn auth(ctx: Context<'_>) -> Result {
         return Ok(()); // TODO move this somewhere else
     }
 
-    let authreq = AuthRequest::new(user_id.into(), guild_id.into());
+    let authreq = AuthRequest::new(
+        user_id.into(),
+        guild_id.into(),
+        db.server_language().to_owned(),
+    );
     let state = authreq.state();
-    db.record_auth_req(&state, user_id.into(), guild_id.into())
-        .await?;
+    db.record_auth_req(
+        &state,
+        user_id.into(),
+        guild_id.into(),
+        db.server_language(),
+    )
+    .await?;
     // https://www.mediawiki.org/wiki/OAuth/For_Developers
     let client_id = &*config.oauth_consumer_key;
     let url = format!(

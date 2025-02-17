@@ -70,6 +70,4 @@ deauth_more_multi_done = Successfully removed authentication data from {$num_ser
 deauth_log = {$mention} has deauthenticated from this server.
 deauth_audit_log = Deauthenticated
 
-# These are currently unused for now. Please still translate this if possible!
 server_auth_success = 成功！验证信息已发送给机器人。
-server_auth_expired = 验证请求已过期或无效。

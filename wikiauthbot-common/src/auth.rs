@@ -3,11 +3,13 @@ use std::num::NonZeroU64;
 
 use color_eyre::eyre::{ContextCompat, bail};
 
+use crate::i18n::lang_is_supported;
+
 struct AuthInfo {
     /// discord user id who initiated this auth request.
     discord_user_id: NonZeroU64,
     guild_id: NonZeroU64,
-    // TODO change these to use serenity's types
+    lang: String,
 }
 
 pub struct AuthRequest {
@@ -17,12 +19,13 @@ pub struct AuthRequest {
 }
 
 impl AuthRequest {
-    pub fn new(discord_user_id: NonZeroU64, guild_id: NonZeroU64) -> AuthRequest {
+    pub fn new(discord_user_id: NonZeroU64, guild_id: NonZeroU64, lang: String) -> AuthRequest {
         AuthRequest {
             id: rand::random(),
             info: AuthInfo {
                 discord_user_id,
                 guild_id,
+                lang,
             },
         }
     }
@@ -31,9 +34,14 @@ impl AuthRequest {
         state: &str,
         discord_user_id: u64,
         guild_id: u64,
+        lang: String,
     ) -> color_eyre::Result<AuthRequest> {
         if state.len() != 28 * 2 {
             bail!("not a valid state string")
+        }
+
+        if !lang_is_supported(&lang) {
+            bail!("unsupported language: {lang}");
         }
 
         let id = state
@@ -50,6 +58,7 @@ impl AuthRequest {
                 discord_user_id: NonZeroU64::new(discord_user_id)
                     .context("discord_user_id null")?,
                 guild_id: NonZeroU64::new(guild_id).context("guild_id null")?,
+                lang,
             },
         })
     }
@@ -67,6 +76,10 @@ impl AuthRequest {
         }
 
         HexFmt(self.id)
+    }
+
+    pub fn language(&self) -> &str {
+        &self.info.lang
     }
 
     pub fn into_successful(self, central_user_id: u32, username: String) -> SuccessfulAuth {

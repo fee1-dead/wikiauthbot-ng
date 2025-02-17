@@ -72,6 +72,4 @@ deauth_more_multi_done = Suppression réussie des données d'authentification de
 deauth_log = {$mention} s'est désauthentifié·ée de ce serveur.
 deauth_audit_log = Désauthentifié·ée
 
-# These are currently unused for now. Please still translate this if possible!
 server_auth_success = Succès ! Informations d'autorisation envoyées au bot :)
-server_auth_expired = La demande d'authentification a expiré ou n'est pas valide.

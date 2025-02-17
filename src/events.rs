@@ -1,5 +1,3 @@
-use std::num::NonZeroU64;
-
 use fred::error::{RedisError, RedisErrorKind};
 use serenity::all::{
     Builder, CreateMessage, EditInteractionResponse, GuildId, Mention, RoleId, UserId,
@@ -38,8 +36,8 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
             };
 
             let wmf_id = central_user_id;
-            let discord_user_id: UserId = NonZeroU64::into(discord_user_id);
-            let guild: GuildId = NonZeroU64::into(guild_id);
+            let discord_user_id = UserId::from(discord_user_id);
+            let guild = GuildId::from(guild_id);
             let parent_db = parent_db.in_guild(guild);
 
             let res = if brand_new {

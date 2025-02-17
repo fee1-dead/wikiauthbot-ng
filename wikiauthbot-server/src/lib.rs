@@ -37,19 +37,9 @@ struct State {
 
 #[get("/")]
 async fn index(_app_state: web::Data<Arc<State>>) -> String {
-    /* match app_state.db.ping().await {
-        Ok(elapsed) => {
-            format!("wikiauthbot-server is running! time it took for redis to respond: {elapsed:?}")
-        }
-        Err(e) => {
-            tracing::error!(%e);
-            format!("Error occured when requesting from Redis. Read the logs for more details!")
-        }
-    } */
     "nothing to see here".into()
 }
 
-// TODO i18n this
 #[get("/authorize")]
 async fn authorize(
     web::Query(AuthRequestQuery {
@@ -68,7 +58,7 @@ async fn authorize(
 
     let Ok(Some(auth_req)) = app_state.db.get_auth_req(&state).await else {
         return HttpResponseBuilder::new(StatusCode::NOT_FOUND)
-            .body("Auth request was expired or invalid");
+            .body("Auth request was expired or invalid.\nPlease contact dbeef on Discord if the problem persists.");
     };
 
     let params = &[
@@ -86,12 +76,12 @@ async fn authorize(
         .await
     else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("error while communicating with wikimedia server");
+            .body("error while communicating with wikimedia server\nPlease contact dbeef on Discord if the problem persists.");
     };
 
     let Ok(AccessTokenResponse { access_token }) = res.json().await else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("error while getting access token from server");
+            .body("error while getting access token from server\nPlease contact dbeef on Discord if the problem persists.");
     };
 
     let Ok(res) = app_state
@@ -102,27 +92,31 @@ async fn authorize(
         .await
     else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("error while retrieving user profile");
+            .body("error while retrieving user profile\nPlease contact dbeef on Discord if the problem persists.");
     };
 
     let Ok(UserProfileResponse { sub, username }) = res.json().await else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("error while parsing user profile");
+            .body("error while parsing user profile\nPlease contact dbeef on Discord if the problem persists.");
     };
 
     let Ok(sub) = sub.parse::<u32>() else {
-        return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("error while parsing user id");
+        return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR).body(
+            "error while parsing user id\nPlease contact dbeef on Discord if the problem persists.",
+        );
     };
+
+    let lang = auth_req.language();
+    let success_msg = wikiauthbot_common::i18n::msg!(lang, "server_auth_success")
+        .unwrap_or_else(|_| "Success! Authorization information sent to the bot :)".into());
 
     let success = auth_req.into_successful(sub, username);
     let Ok(()) = app_state.db.send_successful_req(success).await else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("failed to deliver successful auth request :(");
+            .body("failed to deliver successful auth request :(\nPlease contact dbeef on Discord if the problem persists.");
     };
 
-    HttpResponseBuilder::new(StatusCode::OK)
-        .body("Success! Authorization information sent to the bot :)")
+    HttpResponseBuilder::new(StatusCode::OK).body(success_msg)
 }
 
 #[must_use]

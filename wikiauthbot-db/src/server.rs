@@ -37,9 +37,10 @@ impl DatabaseConnection {
         let txn = self.redis.multi();
         () = try_redis(txn.get(format!("auth_req:{state}:discord_user_id")).await)?;
         () = try_redis(txn.get(format!("auth_req:{state}:guild_id")).await)?;
-        let o: Option<(u64, u64)> = try_redis(txn.exec(true).await)?;
-        o.map(|(discord_user_id, guild_id)| {
-            AuthRequest::from_redis(state, discord_user_id, guild_id)
+        () = try_redis(txn.get(format!("auth_req:{state}:lang")).await)?;
+        let o: Option<(u64, u64, String)> = try_redis(txn.exec(true).await)?;
+        o.map(|(discord_user_id, guild_id, lang)| {
+            AuthRequest::from_redis(state, discord_user_id, guild_id, lang)
         })
         .transpose()
     }
@@ -87,6 +88,7 @@ impl DatabaseConnection {
         state: impl Display,
         discord_user_id: NonZeroU64,
         guild_id: NonZeroU64,
+        lang: &str,
     ) -> RedisResult<()> {
         let txn = self.redis.multi();
         () = try_redis(
@@ -103,6 +105,16 @@ impl DatabaseConnection {
             txn.set(
                 format!("auth_req:{state}:guild_id"),
                 guild_id.get(),
+                Some(Expiration::EX(60 * 10)),
+                None,
+                false,
+            )
+            .await,
+        )?;
+        () = try_redis(
+            txn.set(
+                format!("auth_req:{state}:lang"),
+                lang,
                 Some(Expiration::EX(60 * 10)),
                 None,
                 false,

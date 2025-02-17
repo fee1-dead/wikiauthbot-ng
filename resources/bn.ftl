@@ -70,6 +70,4 @@ deauth_more_multi_done = Successfully removed authentication data from {$num_ser
 deauth_log = {$mention} has deauthenticated from this server.
 deauth_audit_log = Deauthenticated
 
-# These are currently unused for now. Please still translate this if possible!
 server_auth_success = সফল! অনুমোদনের তথ্য বটের কাছে পাঠানো হয়েছে :)
-server_auth_expired = প্রমাণীকরণের অনুরোধ মেয়াদোত্তীর্ণ বা অবৈধ।
