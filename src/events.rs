@@ -51,13 +51,15 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                 continue;
             }
 
-            let Ok(cont_token) = parent_db
+            let cont_token = match parent_db
                 .record_auth_message_successful(discord_user_id.into())
                 .await
-            else {
-                tracing::error!("failed record message as successful");
-                // todo we should include e in them
-                continue;
+            {
+                Ok(cont_token) => cont_token,
+                Err(e) => {
+                    tracing::error!(%e, "failed to record message as successful");
+                    continue;
+                }
             };
 
             let msg = parent_db
@@ -75,7 +77,7 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
             }
 
             let auditlog = msg!(parent_db, "auditlog_successful_auth", wmf_id = wmf_id)
-                .unwrap_or_else(|_| format!("authenticated as wikimedia user {wmf_id}").into());
+                .unwrap();
 
             if let Some(authenticated_role_id) = parent_db.authenticated_role_id() {
                 if let Err(e) = http
@@ -99,7 +101,6 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                     tracing::error!("couldn't get user link");
                     continue;
                 };
-                // TODO: ideally we shouldn't need to fallback
                 let authlog = msg!(
                     parent_db,
                     "authlog",
@@ -108,12 +109,7 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                     user_link = &*user_link,
                     wmf_id = wmf_id
                 );
-                let authlog = authlog.unwrap_or_else(|_| {
-                    format!(
-                        "{mention} authenticated as [User:{username}](<{user_link}>) (id {wmf_id})"
-                    )
-                    .into()
-                });
+                let authlog = authlog.unwrap();
                 if let Err(e) = CreateMessage::new()
                     .content(authlog)
                     .execute(&http, (auth_log_channel_id.into(), Some(guild)))

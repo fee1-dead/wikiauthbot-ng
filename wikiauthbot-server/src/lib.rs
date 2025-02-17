@@ -108,7 +108,7 @@ async fn authorize(
 
     let lang = auth_req.language();
     let success_msg = wikiauthbot_common::i18n::msg!(lang, "server_auth_success")
-        .unwrap_or_else(|_| "Success! Authorization information sent to the bot :)".into());
+        .unwrap();
 
     let success = auth_req.into_successful(sub, username);
     let Ok(()) = app_state.db.send_successful_req(success).await else {
