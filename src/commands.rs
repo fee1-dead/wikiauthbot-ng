@@ -12,6 +12,8 @@ mod deauth;
 mod revwhois;
 pub mod whois;
 
+pub use auth::handle_successful_auth;
+
 #[poise::command(prefix_command)]
 pub async fn register(ctx: Context<'_>, guild: Option<GuildId>) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
@@ -213,17 +215,10 @@ pub async fn server_settings_sanity_check(
         deauth_log_channel_id,
         authenticated_role_id,
         server_language,
-        allow_banned_users,
+        allow_banned_users: _,
         whois_is_ephemeral: _,
     }: &ServerSettingsData,
 ) -> Result<bool> {
-    if !allow_banned_users {
-        // TODO
-        ctx.reply("F: disallowing banned users is not yet implemented")
-            .await?;
-        return Ok(false);
-    }
-
     if !wikiauthbot_common::i18n::lang_is_supported(&server_language) {
         ctx.reply("F: The language you have specified is not supported.")
             .await?;
