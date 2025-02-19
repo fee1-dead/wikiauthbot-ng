@@ -58,7 +58,7 @@ async fn authorize(
 
     let Ok(Some(auth_req)) = app_state.db.get_auth_req(&state).await else {
         return HttpResponseBuilder::new(StatusCode::NOT_FOUND)
-            .body("Auth request was expired or invalid.\nPlease contact dbeef on Discord if the problem persists.");
+            .body("Auth request was expired or invalid.\nPlease contact beef.w on Discord if the problem persists.");
     };
 
     let params = &[
@@ -76,12 +76,12 @@ async fn authorize(
         .await
     else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("error while communicating with wikimedia server\nPlease contact dbeef on Discord if the problem persists.");
+            .body("error while communicating with wikimedia server\nPlease contact beef.w on Discord if the problem persists.");
     };
 
     let Ok(AccessTokenResponse { access_token }) = res.json().await else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("error while getting access token from server\nPlease contact dbeef on Discord if the problem persists.");
+            .body("error while getting access token from server\nPlease contact beef.w on Discord if the problem persists.");
     };
 
     let Ok(res) = app_state
@@ -92,17 +92,17 @@ async fn authorize(
         .await
     else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("error while retrieving user profile\nPlease contact dbeef on Discord if the problem persists.");
+            .body("error while retrieving user profile\nPlease contact beef.w on Discord if the problem persists.");
     };
 
     let Ok(UserProfileResponse { sub, username }) = res.json().await else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("error while parsing user profile\nPlease contact dbeef on Discord if the problem persists.");
+            .body("error while parsing user profile\nPlease contact beef.w on Discord if the problem persists.");
     };
 
     let Ok(sub) = sub.parse::<u32>() else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR).body(
-            "error while parsing user id\nPlease contact dbeef on Discord if the problem persists.",
+            "error while parsing user id\nPlease contact beef.w on Discord if the problem persists.",
         );
     };
 
@@ -112,7 +112,7 @@ async fn authorize(
     let success = auth_req.into_successful(sub, username);
     let Ok(()) = app_state.db.send_successful_req(success).await else {
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("failed to deliver successful auth request :(\nPlease contact dbeef on Discord if the problem persists.");
+            .body("failed to deliver successful auth request :(\nPlease contact beef.w on Discord if the problem persists.");
     };
 
     HttpResponseBuilder::new(StatusCode::OK).body(success_msg)

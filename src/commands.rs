@@ -56,7 +56,7 @@ pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
 
     let db = ctx.data().db.in_guild(guild_id);
     if !db.has_server_settings() {
-        ctx.reply("This server was not set up. Please contact dbeef to set it up first.")
+        ctx.reply("This server was not set up. Please contact beef.w to set it up first.")
             .await?;
         return Ok(());
     }
@@ -201,7 +201,7 @@ pub async fn premigrate_server_check(
 
     ctx.reply(format!("\
     there are {pauthed} linked accounts, and {unauthed} accounts with the given role that have no data and would need to reauth.\n\
-    If you would like to obtain an exact list of people who are not recognized by the bot, contact dbeef.")).await?;
+    If you would like to obtain an exact list of people who are not recognized by the bot, contact beef.w.")).await?;
 
     Ok(())
 }
@@ -337,7 +337,7 @@ pub async fn setup_server(
     let handle = ctx
         .reply(
             "Server has been setup; please wait for database to be updated.\
-    If you still see this message after a minute please let dbeef know.",
+    If you still see this message after a minute please let beef.w know.",
         )
         .await?;
 

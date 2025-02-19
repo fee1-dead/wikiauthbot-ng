@@ -270,7 +270,7 @@ pub async fn whois_impl(ctx: Context<'_>, user_id: UserId) -> Result {
     let db = ctx.data().db_guild(&ctx);
 
     if !db.has_server_settings() {
-        ctx.reply("this server has not been setup. Please contact dbeef for setup assistance.")
+        ctx.reply("this server has not been setup. Please contact beef.w for setup assistance.")
             .await?;
     }
 
