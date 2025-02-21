@@ -10,7 +10,9 @@ edition.workspace = true
 color-eyre.workspace = true
 tokio.workspace = true
 rand = "0.8.5"
+reqwest.workspace = true
 serde.workspace = true
+tracing.workspace = true
 toml = { version = "0.8.8", default-features = false, features = ["parse"] }
 mwapi.workspace = true
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }

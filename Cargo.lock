@@ -3413,9 +3413,11 @@ dependencies = [
  "fluent",
  "mwapi",
  "rand",
+ "reqwest",
  "serde",
  "tokio",
  "toml",
+ "tracing",
  "tracing-subscriber",
  "unic-langid",
 ]

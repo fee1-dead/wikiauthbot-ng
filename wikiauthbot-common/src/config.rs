@@ -22,6 +22,8 @@ struct PrivateCfg {
     oauth_client_secret: Box<str>,
     redis_password: String,
     sql_url: String,
+    #[serde(default)]
+    discord_webhook_url: Option<String>,
 }
 
 impl PrivateCfg {
@@ -39,6 +41,7 @@ pub struct Config {
     pub oauth_client_secret: Box<str>,
     pub redis_password: String,
     pub sql_url: String,
+    pub discord_webhook_url: Option<String>,
 }
 
 impl Config {
@@ -60,6 +63,7 @@ impl Config {
                     oauth_client_secret,
                     redis_password,
                     sql_url,
+                    discord_webhook_url,
                 } = PrivateCfg::read()?;
                 let cfg = Config {
                     bot_owners,
@@ -68,6 +72,7 @@ impl Config {
                     oauth_client_secret,
                     redis_password,
                     sql_url,
+                    discord_webhook_url,
                 };
                 Ok(CFG.get_or_init(move || cfg))
             }

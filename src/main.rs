@@ -1,6 +1,7 @@
 use serenity::all::{Builder, CreateMessage, GatewayIntents, Mentionable, UserId};
 use serenity::client::{ClientBuilder, FullEvent};
 use tracing::trace;
+use wikiauthbot_common::webhook::webhook_println;
 use wikiauthbot_common::Config;
 use wikiauthbot_db::DatabaseConnection;
 
@@ -52,14 +53,17 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
     // and forward the rest to the default handler
     match error {
         poise::FrameworkError::Setup { error, .. } => {
-            tracing::error!("Failed to start bot: {:?}", error)
+            tracing::error!("Failed to start bot: {error:?}");
+            webhook_println!("Failed to start bot: {error}");
         }
         poise::FrameworkError::Command { error, ctx, .. } => {
             tracing::error!("Error in command `{}`: {:?}", ctx.command().name, error);
+            webhook_println!("Error in command `{}`: {}", ctx.command().name, error);
         }
         error => {
             if let Err(e) = poise::builtins::on_error(error).await {
-                tracing::error!("Error while handling error: {}", e)
+                tracing::error!("Error while handling error: {e:?}");
+                webhook_println!("Error while handling error: {e}");
             }
         }
     }
@@ -111,6 +115,7 @@ async fn event_handler(
         }
         FullEvent::Ready { .. } => {
             println!("discord bot is ready");
+            webhook_println!("Ready");
             events::init(ctx, u).await?;
         }
         _ => {}
