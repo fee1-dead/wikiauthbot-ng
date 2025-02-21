@@ -13,13 +13,16 @@ impl ChildDatabaseConnection {
         let (_, key): (String, String) = self.redis.blpop("successful_auths", 10.0).await?;
         let (discord_user_id, guild_id, central_user_id, username, brand_new) = try_redis(
             self.redis
-                .hmget(key, &[
-                    "discord_user_id",
-                    "guild_id",
-                    "central_user_id",
-                    "username",
-                    "brand_new",
-                ])
+                .hmget(
+                    key,
+                    &[
+                        "discord_user_id",
+                        "guild_id",
+                        "central_user_id",
+                        "username",
+                        "brand_new",
+                    ],
+                )
                 .await,
         )?;
         Ok(SuccessfulAuth {
@@ -138,13 +141,16 @@ impl DatabaseConnection {
 
         let key = format!("successful_auth:{}", discord_user_id);
         () = try_redis(
-            txn.hset(&key, [
-                ("discord_user_id", discord_user_id.get().try_into()?),
-                ("guild_id", guild_id.get().try_into()?),
-                ("central_user_id", central_user_id.into()),
-                ("username", String::from(username).into()),
-                ("brand_new", RedisValue::Boolean(brand_new)),
-            ])
+            txn.hset(
+                &key,
+                [
+                    ("discord_user_id", discord_user_id.get().try_into()?),
+                    ("guild_id", guild_id.get().try_into()?),
+                    ("central_user_id", central_user_id.into()),
+                    ("username", String::from(username).into()),
+                    ("brand_new", RedisValue::Boolean(brand_new)),
+                ],
+            )
             .await,
         )?;
         // make the hash expire after ten minutes.

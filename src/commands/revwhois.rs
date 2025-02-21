@@ -24,19 +24,19 @@ pub async fn revwhois(
     {
         Ok(val) => val,
         Err(_) => {
-            ctx.reply(db.get_message("revwhois_fail").await?).await?;
+            ctx.reply(db.get_message("revwhois_fail")?).await?;
             return Ok(());
         }
     };
 
     let Some(id) = val["query"]["globaluserinfo"]["id"].take().as_u64() else {
-        ctx.reply(db.get_message("revwhois_fail").await?).await?;
+        ctx.reply(db.get_message("revwhois_fail")?).await?;
         return Ok(());
     };
 
     let results = db.revwhois(id as u32).await?;
 
-    let user_link = db.user_link(&user).await?;
+    let user_link = db.user_link(&user)?;
     match &results[..] {
         [] => {
             ctx.reply(msg!(

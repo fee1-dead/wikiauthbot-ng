@@ -75,12 +75,12 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             .await?)
     }
 
-    pub async fn get_message(&self, key: &str) -> color_eyre::Result<Cow<'static, str>> {
+    pub fn get_message(&self, key: &str) -> color_eyre::Result<Cow<'static, str>> {
         let lang = self.server_language();
         wikiauthbot_common::i18n::get_message(lang, key)
     }
 
-    pub async fn user_link(&self, user_name: &str) -> color_eyre::Result<Cow<'static, str>> {
+    pub fn user_link(&self, user_name: &str) -> color_eyre::Result<Cow<'static, str>> {
         let lang = self.server_language();
         let normalized_name = user_name.replace(' ', "+");
         wikiauthbot_common::msg!(lang, "user_link", normalized_name = normalized_name)
@@ -173,6 +173,7 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             server_language,
             allow_banned_users,
             whois_is_ephemeral,
+            allow_partially_blocked_users,
         } = data;
         let mut q = QueryBuilder::new("INSERT INTO guilds VALUES(");
         let mut separated = q.separated(", ");
@@ -184,7 +185,8 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             .push_bind(authenticated_role_id)
             .push_bind(server_language)
             .push_bind(allow_banned_users)
-            .push_bind(whois_is_ephemeral);
+            .push_bind(whois_is_ephemeral)
+            .push_bind(allow_partially_blocked_users);
         separated.push_unseparated(")");
         q.build().execute(&self.sql).await?;
         Ok(())
@@ -207,6 +209,7 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             server_language,
             allow_banned_users,
             whois_is_ephemeral,
+            allow_partially_blocked_users,
         } = data;
 
         sqlx::query(
@@ -218,7 +221,8 @@ impl<'a> DatabaseConnectionInGuild<'a> {
                     authenticated_role_id = ?, 
                     server_language = ?,
                     allow_banned_users = ?,
-                    whois_is_ephemeral = ?
+                    whois_is_ephemeral = ?,
+                    allow_partially_blocked_users = ?
                 where guild_id = ?",
         )
         .bind(welcome_channel_id)
@@ -228,6 +232,7 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         .bind(server_language)
         .bind(allow_banned_users)
         .bind(whois_is_ephemeral)
+        .bind(allow_partially_blocked_users)
         .bind(self.guild_id.get())
         .execute(&self.sql)
         .await?;
@@ -279,6 +284,10 @@ impl<'a> DatabaseConnectionInGuild<'a> {
 
     pub fn whois_is_ephemeral(&self) -> bool {
         self.server_settings.as_ref().unwrap().whois_is_ephemeral
+    }
+
+    pub fn disallow_blocked_users(&self) -> bool {
+        !self.server_settings.as_ref().unwrap().allow_banned_users
     }
 
     pub fn has_server_settings(&self) -> bool {
@@ -335,7 +344,8 @@ impl DatabaseConnection {
             authenticated_role_id,
             server_language,
             allow_banned_users,
-            whois_is_ephemeral
+            whois_is_ephemeral,
+            allow_partially_blocked_users,
         from guilds",
         )
         .fetch_all(sql)
@@ -358,6 +368,7 @@ impl DatabaseConnection {
                 server_language,
                 allow_banned_users,
                 whois_is_ephemeral,
+                allow_partially_blocked_users,
             );
 
             let data = ServerSettingsData {
@@ -368,6 +379,7 @@ impl DatabaseConnection {
                 server_language,
                 allow_banned_users,
                 whois_is_ephemeral,
+                allow_partially_blocked_users,
             };
             map.insert(guild_id, data);
         }
@@ -431,6 +443,7 @@ pub struct ServerSettingsData {
     pub server_language: String,
     pub allow_banned_users: bool,
     pub whois_is_ephemeral: bool,
+    pub allow_partially_blocked_users: bool,
 }
 
 fn try_redis<T>(x: RedisResult<T>) -> RedisResult<T> {

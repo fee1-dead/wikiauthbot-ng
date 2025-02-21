@@ -108,7 +108,7 @@ pub async fn handle_interactions(
     }
 
     let newmsg = EditInteractionResponse::new()
-        .content(db.get_message("deauth_expired").await?)
+        .content(db.get_message("deauth_expired")?)
         .components(vec![]);
     newmsg.execute(&ctx, &cont_token).await?;
     Ok(())

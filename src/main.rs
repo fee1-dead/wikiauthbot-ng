@@ -1,11 +1,7 @@
-use serenity::all::{Builder, CreateMessage, GatewayIntents, Mentionable, UserId};
-use serenity::client::{ClientBuilder, FullEvent};
-use tracing::trace;
-use wikiauthbot_common::webhook::webhook_println;
+use serenity::all::{GatewayIntents, UserId};
+use serenity::client::ClientBuilder;
 use wikiauthbot_common::Config;
 use wikiauthbot_db::DatabaseConnection;
-
-use crate::commands::whois::fetch_whois;
 
 pub mod commands;
 mod events;
@@ -47,82 +43,6 @@ fn main() -> Result<()> {
         .block_on(main_inner())
 }
 
-async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
-    // This is our custom error handler
-    // They are many errors that can occur, so we only handle the ones we want to customize
-    // and forward the rest to the default handler
-    match error {
-        poise::FrameworkError::Setup { error, .. } => {
-            tracing::error!("Failed to start bot: {error:?}");
-            webhook_println!("Failed to start bot: {error}");
-        }
-        poise::FrameworkError::Command { error, ctx, .. } => {
-            tracing::error!("Error in command `{}`: {:?}", ctx.command().name, error);
-            webhook_println!("Error in command `{}`: {}", ctx.command().name, error);
-        }
-        error => {
-            if let Err(e) = poise::builtins::on_error(error).await {
-                tracing::error!("Error while handling error: {e:?}");
-                webhook_println!("Error while handling error: {e}");
-            }
-        }
-    }
-}
-
-async fn event_handler(
-    ctx: &serenity::all::Context,
-    event: &FullEvent,
-    _ftx: poise::FrameworkContext<'_, Data, Error>,
-    u: &Data,
-) -> Result {
-    match event {
-        FullEvent::GuildMemberAddition { new_member } => {
-            let guild = new_member.guild_id;
-            let db = u.db.in_guild(guild);
-            trace!(?guild, "new member");
-            if let Some(chan) = db.welcome_channel_id() {
-                let mention = new_member.mention().to_string();
-
-                let content = if let Ok(Some(whois)) = db.whois(new_member.user.id.get()).await {
-                    if let Some(authenticated_role) = db.authenticated_role_id() {
-                        new_member.add_role(ctx, authenticated_role).await?;
-                    }
-                    match fetch_whois(&u.client, whois.wikimedia_id).await {
-                        Ok(whois) => {
-                            let name = whois.name;
-                            let user_link = db.user_link(&name).await?;
-                            wikiauthbot_db::msg!(
-                                db,
-                                "welcome_has_auth",
-                                mention = mention,
-                                name = name,
-                                user_link = user_link
-                            )?
-                        }
-                        _ => {
-                            tracing::error!("failed to fetch whois!");
-                            wikiauthbot_db::msg!(db, "welcome_has_auth_failed", mention = mention)?
-                        }
-                    }
-                } else {
-                    wikiauthbot_db::msg!(db, "welcome", mention = mention)?
-                };
-                let msg = CreateMessage::new().content(content);
-                msg.reactions(['👋'])
-                    .execute(ctx, (chan.into(), Some(guild)))
-                    .await?;
-            }
-        }
-        FullEvent::Ready { .. } => {
-            println!("discord bot is ready");
-            webhook_println!("Ready");
-            events::init(ctx, u).await?;
-        }
-        _ => {}
-    }
-    Ok(())
-}
-
 async fn bot_start() -> Result<()> {
     let config = Config::get()?;
     let db = DatabaseConnection::prod().await?;
@@ -150,9 +70,9 @@ async fn bot_start() -> Result<()> {
                 prefix: Some("wab!".into()),
                 ..Default::default()
             },
-            on_error: |error| Box::pin(on_error(error)),
+            on_error: |error| Box::pin(events::on_error(error)),
             event_handler: |ctx, event, framework, data| {
-                Box::pin(event_handler(ctx, event, framework, data))
+                Box::pin(events::event_handler(ctx, event, framework, data))
             },
             ..Default::default()
         })

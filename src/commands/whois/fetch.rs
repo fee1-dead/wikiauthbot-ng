@@ -81,122 +81,148 @@ pub struct BlockFlags {
     partial: bool,
 }
 
-impl WhoisInfo {
-    pub async fn create_embed(
-        mut self,
-        discord_user_id: UserId,
-        db: DatabaseConnectionInGuild<'_>,
-    ) -> Result<CreateEmbed> {
-        let mention = Mention::User(discord_user_id).to_string();
-        let registration = self
-            .registration
-            .split_once("T")
-            .ok_or_eyre("invalid date")?
-            .0;
+pub struct EmbeddableWikiInfo {
+    wiki: String,
+    editcount: u64,
+    groups: Vec<String>,
+}
 
-        let global_groups = if !self.groups.is_empty() {
-            let mut msg = msg!(
-                db,
-                "whois_global_groups",
-                groupslist = self.groups.join(", ")
-            )?;
+pub struct EmbeddableBlockInfo {
+    wiki: String,
+    reason: String,
+    expiry: String,
+    partial: bool,
+}
+
+#[derive(Clone, Copy)]
+pub enum EmbeddableBlockKind {
+    NotBlocked,
+    PartiallyBlocked,
+    FullyBlocked,
+}
+
+pub struct EmbeddableWhois {
+    discord_user_id: UserId,
+    name: String,
+    registration: String,
+    groups: Vec<String>,
+    /// sorted from most edits to least edits; must have at least one edit; must not be more than 10
+    wikis: Vec<EmbeddableWikiInfo>,
+    blocked: EmbeddableBlockKind,
+    locked: bool,
+    blocks: Vec<EmbeddableBlockInfo>,
+    home: String,
+    edits: u64,
+    overflowed: bool,
+}
+
+impl EmbeddableWhois {
+    pub fn create_embed(self, db: DatabaseConnectionInGuild<'_>) -> Result<CreateEmbed> {
+        let EmbeddableWhois {
+            discord_user_id,
+            name,
+            registration,
+            groups,
+            wikis,
+            blocked,
+            locked,
+            blocks,
+            home,
+            edits,
+            overflowed,
+        } = self;
+        let mention = Mention::User(discord_user_id).to_string();
+        let registration = registration.split_once("T").ok_or_eyre("invalid date")?.0;
+        let global_groups = if !groups.is_empty() {
+            let mut msg = msg!(db, "whois_global_groups", groupslist = groups.join(", "))?;
             msg.to_mut().push('\n');
             msg
         } else {
             "".into()
         };
 
-        let mut edits = 0;
-
-        // TODO introduce if servers want to remove users who are indeffed
-        // let mut indeffed = false;
-        self.merged.sort_by_key(|w| Reverse(w.editcount));
-        let mut fields = Vec::new();
-        let mut blocks = Vec::new();
-        for wiki in self.merged.into_iter().filter(|w| w.editcount > 0) {
-            let mut content = msg!(db, "whois_edits", edits = wiki.editcount)?;
-            let mut inline = true;
-            edits += wiki.editcount;
-            if !wiki.groups.is_empty() {
-                let content = content.to_mut();
-                content.push('\n');
-                content.push_str(&msg!(
-                    db,
-                    "whois_groups",
-                    groupslist = wiki.groups.join(", ")
-                )?);
-                inline = false;
-            }
-
-            fields.push((wiki.wiki.clone(), content, inline));
-            if let Some(blocked) = wiki.blocked {
-                let blockflags = fetch_block(&wiki.url, &self.name).await?;
-                blocks.push((wiki.wiki, blocked, blockflags));
-            }
-        }
+        let fields = wikis.into_iter().map(
+            |EmbeddableWikiInfo {
+                 wiki,
+                 editcount,
+                 groups,
+             }| {
+                // we're just YOLO'ing here because I like it to be an iterator
+                let mut content = msg!(db, "whois_edits", edits = editcount).unwrap();
+                let mut inline = true;
+                if !groups.is_empty() {
+                    let content = content.to_mut();
+                    content.push('\n');
+                    content.push_str(
+                        &msg!(db, "whois_groups", groupslist = groups.join(", ")).unwrap(),
+                    );
+                    inline = false;
+                }
+                (wiki, content, inline)
+            },
+        );
 
         let mut whois = msg!(
             db,
             "whois",
             mention = mention,
             registration = registration,
-            home = self.home,
+            home = home,
             global_groups = global_groups,
             edits = edits,
         )?;
-
-        let btext = msg!(db, "whois_blocked")?;
-        let pbtext = msg!(db, "whois_pblocked")?;
-        let ltext = msg!(db, "whois_locked")?;
         let mb = whois.to_mut();
-        let has_blocks = !blocks.is_empty();
-        if has_blocks {
-            let partial = blocks
-                .iter()
-                .flat_map(|(_, _, flags)| flags)
-                .into_iter()
-                .all(|flags| flags.partial);
-            let icon = if partial && !self.locked {
-                "<:possilikely:936065888237547541>"
-            } else {
+
+
+        let icon = match (blocked, locked) {
+            (_, true) | (EmbeddableBlockKind::FullyBlocked, false) => {
                 "<:declined:359850777453264906>"
+            },
+            (EmbeddableBlockKind::PartiallyBlocked, false) => {
+                "<:possilikely:936065888237547541>"
+            }
+            (EmbeddableBlockKind::NotBlocked, false) => {
+                ""
+            }
+        };
+
+        let pblocked = msg!(db, "whois_pblocked")?;
+
+        if !icon.is_empty() {
+            let mut text = match blocked {
+                EmbeddableBlockKind::FullyBlocked => pblocked.clone(),
+                EmbeddableBlockKind::PartiallyBlocked => msg!(db, "whois_blocked")?,
+                EmbeddableBlockKind::NotBlocked => "".into(),
             };
 
-            mb.push_str(&format!(
-                "\n\n{icon} {}{}\n",
-                if partial { &pbtext } else { &btext },
-                if self.locked {
-                    format!(" {ltext}")
-                } else {
-                    String::new()
+            if locked {
+                if text.is_empty() {
+                    text.to_mut().push(' ');
                 }
+                text.to_mut().push_str(&msg!(db, "whois_locked")?);
+            }
+            mb.push_str(&format!(
+                "\n\n{icon} {text}\n",
             ));
         }
-        for (wiki, block, flags) in blocks.into_iter() {
-            let partial = flags.into_iter().all(|flags| flags.partial);
-            let reason = if block.reason.is_empty() {
-                &*db.get_message("whois_no_block_reason").await?
+
+        for EmbeddableBlockInfo { wiki, reason, expiry, partial } in blocks.into_iter() {
+            let reason = if reason.is_empty() {
+                &*db.get_message("whois_no_block_reason")?
             } else {
-                &block.reason
+                &reason
             };
             mb.push_str(&format!(
                 "**{wiki}** ({}){}\n",
-                block.expiry,
-                if partial {
-                    format!(" ({pbtext})")
-                } else {
-                    String::new()
-                }
+                expiry,
+                partial.then(|| format!(" ({pblocked})")).unwrap_or_default()
             ));
             mb.push_str(&format!("__{reason}__\n"));
         }
 
-        if !has_blocks && self.locked {
-            mb.push_str(&format!("\n\n<:declined:359850777453264906> {ltext}\n"));
-        }
 
         let date =
-            chrono::DateTime::parse_from_rfc3339(&self.registration).context("invalid date")?;
+            chrono::DateTime::parse_from_rfc3339(&registration).context("invalid date")?;
 
         let days: u64 = chrono::offset::Utc::now()
             .signed_duration_since(date)
@@ -211,10 +237,10 @@ impl WhoisInfo {
 
         let mut fields = fields.into_iter();
 
-        let user_link = db.user_link(&self.name).await?;
+        let user_link = db.user_link(&name)?;
         let mut embed = CreateEmbed::new()
             .colour(0xCCCCCC)
-            .title(self.name)
+            .title(name)
             .description(whois)
             .url(user_link)
             .thumbnail(format!(
@@ -222,13 +248,63 @@ impl WhoisInfo {
             ))
             .fields(fields.by_ref().take(10));
 
-        if fields.next().is_some() {
+        if overflowed {
             embed = embed.footer(CreateEmbedFooter::new(
-                db.get_message("whois_overflow").await?,
+                db.get_message("whois_overflow")?,
             ));
         }
-
         Ok(embed)
+    }
+}
+
+impl WhoisInfo {
+    pub async fn into_embeddable(mut self, discord_user_id: UserId) -> Result<EmbeddableWhois> {
+        let mut edits = 0;
+        self.merged.sort_by_key(|w| Reverse(w.editcount));
+        self.merged.retain(|x| x.editcount > 0);
+        let mut wikis = Vec::new();
+        let mut blocks = Vec::new();
+        let mut blocked = EmbeddableBlockKind::NotBlocked;
+        let overflowed = self.merged.len() > 10;
+        for wiki in self.merged {
+            edits += wiki.editcount;
+            
+            wikis.push(EmbeddableWikiInfo {
+                editcount: wiki.editcount,
+                groups: wiki.groups,
+                wiki: wiki.wiki.clone(),
+            });
+            if let Some(info) = wiki.blocked {
+                let blockflags = fetch_block(&wiki.url, &self.name).await?;
+                let partial = blockflags.into_iter().all(|flags| flags.partial);
+                match (blocked, partial) {
+                    (EmbeddableBlockKind::NotBlocked, true) => blocked = EmbeddableBlockKind::PartiallyBlocked,
+                    (_, true) => {}
+                    (_, false) => blocked = EmbeddableBlockKind::FullyBlocked,
+                };
+                blocks.push(EmbeddableBlockInfo {
+                    expiry: info.expiry,
+                    partial,
+                    reason: info.reason,
+                    wiki: wiki.wiki,
+                });
+            }
+        }
+
+        let whois = EmbeddableWhois {
+            discord_user_id,
+            name: self.name,
+            registration: self.registration,
+            groups: self.groups,
+            blocked,
+            blocks,
+            wikis,
+            locked: self.locked,
+            home: self.home,
+            edits,
+            overflowed,
+        };
+        Ok(whois)
     }
 }
 
@@ -263,78 +339,4 @@ pub async fn fetch_block(url: &str, name: &str) -> Result<Vec<BlockFlags>> {
         .take();
 
     serde_json::from_value(v).map_err(Into::into)
-}
-
-pub async fn whois_impl(ctx: Context<'_>, user_id: UserId) -> Result {
-    let crate::Data { client, .. } = ctx.data();
-    let db = ctx.data().db_guild(&ctx);
-
-    if !db.has_server_settings() {
-        ctx.reply("this server has not been setup. Please contact beef.w for setup assistance.")
-            .await?;
-    }
-
-    if db.whois_is_ephemeral() {
-        ctx.defer_ephemeral().await?;
-    } else {
-        ctx.defer().await?;
-    }
-
-    let user = user_id.get();
-    let whois = db.whois(user).await?;
-
-    let Some(WhoisResult { wikimedia_id }) = whois else {
-        ctx.reply(db.get_message("whois_no_user_found").await?)
-            .await?;
-        return Ok(());
-    };
-
-    let whois: WhoisInfo = fetch_whois(client, wikimedia_id).await?;
-
-    ctx.send(
-        CreateReply::default()
-            .ephemeral(true)
-            .embed(whois.create_embed(user_id, db).await?),
-    )
-    .await?;
-
-    Ok(())
-}
-
-#[poise::command(context_menu_command = "Get whois", ephemeral, guild_only = true)]
-pub async fn whois_menu(ctx: Context<'_>, user: User) -> Result {
-    whois_impl(ctx, user.id).await
-}
-
-#[poise::command(slash_command, ephemeral, guild_only = true)]
-/// Check account details for an authenticated member
-pub async fn whois(
-    ctx: Context<'_>,
-    // TODO i18n description of commands
-    #[description = "User to check, leave blank for yourself"] user: Option<UserId>,
-) -> Result {
-    whois_impl(ctx, user.unwrap_or_else(|| ctx.author().id)).await
-}
-
-#[poise::command(prefix_command)]
-pub(crate) async fn whois_bench(ctx: Context<'_>, guild: GuildId, user: Option<UserId>) -> Result {
-    let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
-    if !is_bot_owner {
-        // silent fail
-        return Ok(());
-    }
-
-    let start = Instant::now();
-    let res = ctx
-        .data()
-        .db
-        .in_guild(guild)
-        .whois(user.unwrap_or(ctx.author().id).get())
-        .await;
-    let elapsed = start.elapsed();
-
-    ctx.reply(format!("elapsed {elapsed:?} for result {res:?}"))
-        .await?;
-
-    Ok(())
 }

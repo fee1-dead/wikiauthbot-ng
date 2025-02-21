@@ -57,7 +57,7 @@ pub async fn handle_interactions(
     }
 
     let newmsg = EditInteractionResponse::new()
-        .content(db.get_message("authreq_expired").await?)
+        .content(db.get_message("authreq_expired")?)
         .components(vec![]);
     newmsg.execute(&ctx, &cont_token).await?;
     Ok(())
@@ -83,11 +83,11 @@ pub async fn auth_data_already_exists(
     let Value::String(name) = val["query"]["globaluserinfo"]["name"].take() else {
         bail!("name isn't string?")
     };
-    let url =
-        url::Url::parse_with_params("https://meta.wikimedia.org/wiki/Special:CentralAuth", [(
-            "target", &name,
-        )])
-        .unwrap();
+    let url = url::Url::parse_with_params(
+        "https://meta.wikimedia.org/wiki/Special:CentralAuth",
+        [("target", &name)],
+    )
+    .unwrap();
     let msg = msg!(db, "auth_to_server", name = &name, url = url.to_string())?;
     let yes = msg!(db, "yes")?;
     let no = msg!(db, "no")?;
@@ -132,7 +132,7 @@ pub async fn auth(ctx: Context<'_>) -> Result {
     let db = db.in_guild(guild_id);
 
     if db.is_user_authed_in_server(user_id.get()).await? {
-        ctx.reply(db.get_message("auth_exists_in_server").await?)
+        ctx.reply(db.get_message("auth_exists_in_server")?)
             .await?;
         if let Some(authenticated_role) = db.authenticated_role_id() {
             ctx.author_member()
@@ -179,7 +179,7 @@ pub async fn auth(ctx: Context<'_>) -> Result {
         CreateReply::default().embed(
             CreateEmbed::new()
                 .color(0xCCCCCC)
-                .title(db.get_message("bot").await?)
+                .title(db.get_message("bot")?)
                 .description(auth)
                 .thumbnail("https://cdn.discordapp.com/emojis/546848856650809344.png")
                 .footer(CreateEmbedFooter::new(
@@ -232,7 +232,6 @@ pub async fn handle_successful_auth(
 
     let msg = parent_db
         .get_message("authreq_successful")
-        .await
         .unwrap_or("Authentication successful".into());
 
     let newmsg = EditInteractionResponse::new()
@@ -262,7 +261,7 @@ pub async fn handle_successful_auth(
 
     if let Some(auth_log_channel_id) = parent_db.auth_log_channel_id() {
         let mention = Mention::User(discord_user_id).to_string();
-        let Ok(user_link) = parent_db.user_link(&username).await else {
+        let Ok(user_link) = parent_db.user_link(&username) else {
             tracing::error!("couldn't get user link");
             return;
         };

@@ -22,7 +22,13 @@ macro_rules! webhook_println {
 pub use webhook_println;
 
 pub fn send_message(x: impl Display) {
-    let Ok(Config { discord_webhook_url: Some(url), .. }) = crate::config::Config::get() else { return };
+    let Ok(Config {
+        discord_webhook_url: Some(url),
+        ..
+    }) = crate::config::Config::get()
+    else {
+        return;
+    };
 
     let content = x.to_string();
     tokio::spawn(async move {
