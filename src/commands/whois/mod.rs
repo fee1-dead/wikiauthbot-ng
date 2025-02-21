@@ -1,12 +1,8 @@
-use std::cmp::Reverse;
 use std::time::Instant;
 
-use color_eyre::eyre::{Context as _, OptionExt};
 use poise::CreateReply;
-use serenity::all::{GuildId, Mention, User, UserId};
-use serenity::builder::{CreateEmbed, CreateEmbedFooter};
-use wikiauthbot_common::mwclient_with_url;
-use wikiauthbot_db::{DatabaseConnectionInGuild, WhoisResult, msg};
+use serenity::all::{GuildId, User, UserId};
+use wikiauthbot_db::WhoisResult;
 
 use crate::{Context, Result};
 

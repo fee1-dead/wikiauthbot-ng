@@ -1,14 +1,12 @@
 use std::cmp::Reverse;
-use std::time::Instant;
 
 use color_eyre::eyre::{Context as _, OptionExt};
-use poise::CreateReply;
-use serenity::all::{GuildId, Mention, User, UserId};
+use serenity::all::{Mention, UserId};
 use serenity::builder::{CreateEmbed, CreateEmbedFooter};
 use wikiauthbot_common::mwclient_with_url;
-use wikiauthbot_db::{DatabaseConnectionInGuild, WhoisResult, msg};
+use wikiauthbot_db::{DatabaseConnectionInGuild, msg};
 
-use crate::{Context, Result};
+use crate::Result;
 
 pub struct MedalInfo {
     days: u64,
