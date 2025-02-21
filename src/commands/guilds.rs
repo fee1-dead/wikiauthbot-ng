@@ -258,7 +258,10 @@ pub async fn server_settings_sanity_check(
     }
 
     if *allow_banned_users && !*allow_partially_blocked_users {
-        ctx.reply("you cannot disallow partially blocked users without disallowing fully blocked users!").await?;
+        ctx.reply(
+            "you cannot disallow partially blocked users without disallowing fully blocked users!",
+        )
+        .await?;
         return Ok(false);
     }
     Ok(true)

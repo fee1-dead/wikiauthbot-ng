@@ -28,8 +28,7 @@ pub async fn whois_impl(ctx: Context<'_>, user_id: UserId) -> Result {
     let whois = db.whois(user).await?;
 
     let Some(WhoisResult { wikimedia_id }) = whois else {
-        ctx.reply(db.get_message("whois_no_user_found")?)
-            .await?;
+        ctx.reply(db.get_message("whois_no_user_found")?).await?;
         return Ok(());
     };
 

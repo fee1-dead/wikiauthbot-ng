@@ -171,17 +171,12 @@ impl EmbeddableWhois {
         )?;
         let mb = whois.to_mut();
 
-
         let icon = match (blocked, locked) {
             (_, true) | (EmbeddableBlockKind::FullyBlocked, false) => {
                 "<:declined:359850777453264906>"
-            },
-            (EmbeddableBlockKind::PartiallyBlocked, false) => {
-                "<:possilikely:936065888237547541>"
             }
-            (EmbeddableBlockKind::NotBlocked, false) => {
-                ""
-            }
+            (EmbeddableBlockKind::PartiallyBlocked, false) => "<:possilikely:936065888237547541>",
+            (EmbeddableBlockKind::NotBlocked, false) => "",
         };
 
         let pblocked = msg!(db, "whois_pblocked")?;
@@ -199,12 +194,16 @@ impl EmbeddableWhois {
                 }
                 text.to_mut().push_str(&msg!(db, "whois_locked")?);
             }
-            mb.push_str(&format!(
-                "\n\n{icon} {text}\n",
-            ));
+            mb.push_str(&format!("\n\n{icon} {text}\n",));
         }
 
-        for EmbeddableBlockInfo { wiki, reason, expiry, partial } in blocks.into_iter() {
+        for EmbeddableBlockInfo {
+            wiki,
+            reason,
+            expiry,
+            partial,
+        } in blocks.into_iter()
+        {
             let reason = if reason.is_empty() {
                 &*db.get_message("whois_no_block_reason")?
             } else {
@@ -213,14 +212,14 @@ impl EmbeddableWhois {
             mb.push_str(&format!(
                 "**{wiki}** ({}){}\n",
                 expiry,
-                partial.then(|| format!(" ({pblocked})")).unwrap_or_default()
+                partial
+                    .then(|| format!(" ({pblocked})"))
+                    .unwrap_or_default()
             ));
             mb.push_str(&format!("__{reason}__\n"));
         }
 
-
-        let date =
-            chrono::DateTime::parse_from_rfc3339(&registration).context("invalid date")?;
+        let date = chrono::DateTime::parse_from_rfc3339(&registration).context("invalid date")?;
 
         let days: u64 = chrono::offset::Utc::now()
             .signed_duration_since(date)
@@ -247,9 +246,7 @@ impl EmbeddableWhois {
             .fields(fields.by_ref().take(10));
 
         if overflowed {
-            embed = embed.footer(CreateEmbedFooter::new(
-                db.get_message("whois_overflow")?,
-            ));
+            embed = embed.footer(CreateEmbedFooter::new(db.get_message("whois_overflow")?));
         }
         Ok(embed)
     }
@@ -266,7 +263,7 @@ impl WhoisInfo {
         let overflowed = self.merged.len() > 10;
         for wiki in self.merged {
             edits += wiki.editcount;
-            
+
             wikis.push(EmbeddableWikiInfo {
                 editcount: wiki.editcount,
                 groups: wiki.groups,
@@ -276,7 +273,9 @@ impl WhoisInfo {
                 let blockflags = fetch_block(&wiki.url, &self.name).await?;
                 let partial = blockflags.into_iter().all(|flags| flags.partial);
                 match (blocked, partial) {
-                    (EmbeddableBlockKind::NotBlocked, true) => blocked = EmbeddableBlockKind::PartiallyBlocked,
+                    (EmbeddableBlockKind::NotBlocked, true) => {
+                        blocked = EmbeddableBlockKind::PartiallyBlocked
+                    }
                     (_, true) => {}
                     (_, false) => blocked = EmbeddableBlockKind::FullyBlocked,
                 };

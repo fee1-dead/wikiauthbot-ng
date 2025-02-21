@@ -132,8 +132,7 @@ pub async fn auth(ctx: Context<'_>) -> Result {
     let db = db.in_guild(guild_id);
 
     if db.is_user_authed_in_server(user_id.get()).await? {
-        ctx.reply(db.get_message("auth_exists_in_server")?)
-            .await?;
+        ctx.reply(db.get_message("auth_exists_in_server")?).await?;
         if let Some(authenticated_role) = db.authenticated_role_id() {
             ctx.author_member()
                 .await
