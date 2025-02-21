@@ -9,6 +9,13 @@ pub use auth::{AuthRequest, SuccessfulAuth};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 
+#[derive(Clone, Copy)]
+pub enum BlockKind {
+    NotBlocked,
+    PartiallyBlocked,
+    Blocked,
+}
+
 pub async fn mwclient() -> mwapi::Result<mwapi::Client> {
     mwclient_with_url("https://meta.wikimedia.org/w/api.php").await
 }

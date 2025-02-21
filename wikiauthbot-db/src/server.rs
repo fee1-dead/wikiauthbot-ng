@@ -75,7 +75,7 @@ impl DatabaseConnection {
         Ok(())
     }
 
-    pub async fn record_auth_message_successful(
+    pub async fn get_auth_message_cont_token(
         &self,
         discord_user_id: NonZeroU64,
     ) -> RedisResult<String> {

@@ -10,6 +10,7 @@ use crate::commands::whois::fetch_whois;
 use crate::{Data, Error, Result};
 
 pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<()> {
+    let mwclient = u.client.clone();
     let parent_db = u.db.clone();
     let db = parent_db.get_child().await?;
     let http = ctx.http.clone();
@@ -24,12 +25,13 @@ pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<
                             continue;
                         }
                     }
+                    webhook_println!("couldn't receive successful request! {e}");
                     tracing::error!(?e, "couldn't receive successful request");
                     continue;
                 }
             };
 
-            handle_successful_auth(succ, &http, &parent_db).await;
+            handle_successful_auth(succ, &http, &parent_db, &mwclient).await;
         }
     });
     Ok(())

@@ -3,7 +3,7 @@ use std::cmp::Reverse;
 use color_eyre::eyre::{Context as _, OptionExt};
 use serenity::all::{Mention, UserId};
 use serenity::builder::{CreateEmbed, CreateEmbedFooter};
-use wikiauthbot_common::mwclient_with_url;
+use wikiauthbot_common::{BlockKind, mwclient_with_url};
 use wikiauthbot_db::{DatabaseConnectionInGuild, msg};
 
 use crate::Result;
@@ -92,13 +92,6 @@ pub struct EmbeddableBlockInfo {
     partial: bool,
 }
 
-#[derive(Clone, Copy)]
-pub enum EmbeddableBlockKind {
-    NotBlocked,
-    PartiallyBlocked,
-    FullyBlocked,
-}
-
 pub struct EmbeddableWhois {
     discord_user_id: UserId,
     name: String,
@@ -106,7 +99,7 @@ pub struct EmbeddableWhois {
     groups: Vec<String>,
     /// sorted from most edits to least edits; must have at least one edit; must not be more than 10
     wikis: Vec<EmbeddableWikiInfo>,
-    blocked: EmbeddableBlockKind,
+    pub blocked: BlockKind,
     locked: bool,
     blocks: Vec<EmbeddableBlockInfo>,
     home: String,
@@ -172,20 +165,18 @@ impl EmbeddableWhois {
         let mb = whois.to_mut();
 
         let icon = match (blocked, locked) {
-            (_, true) | (EmbeddableBlockKind::FullyBlocked, false) => {
-                "<:declined:359850777453264906>"
-            }
-            (EmbeddableBlockKind::PartiallyBlocked, false) => "<:possilikely:936065888237547541>",
-            (EmbeddableBlockKind::NotBlocked, false) => "",
+            (_, true) | (BlockKind::Blocked, false) => "<:declined:359850777453264906>",
+            (BlockKind::PartiallyBlocked, false) => "<:possilikely:936065888237547541>",
+            (BlockKind::NotBlocked, false) => "",
         };
 
         let pblocked = msg!(db, "whois_pblocked")?;
 
         if !icon.is_empty() {
             let mut text = match blocked {
-                EmbeddableBlockKind::FullyBlocked => pblocked.clone(),
-                EmbeddableBlockKind::PartiallyBlocked => msg!(db, "whois_blocked")?,
-                EmbeddableBlockKind::NotBlocked => "".into(),
+                BlockKind::PartiallyBlocked => pblocked.clone(),
+                BlockKind::Blocked => msg!(db, "whois_blocked")?,
+                BlockKind::NotBlocked => "".into(),
             };
 
             if locked {
@@ -259,7 +250,7 @@ impl WhoisInfo {
         self.merged.retain(|x| x.editcount > 0);
         let mut wikis = Vec::new();
         let mut blocks = Vec::new();
-        let mut blocked = EmbeddableBlockKind::NotBlocked;
+        let mut blocked = BlockKind::NotBlocked;
         let overflowed = self.merged.len() > 10;
         for wiki in self.merged {
             edits += wiki.editcount;
@@ -273,11 +264,9 @@ impl WhoisInfo {
                 let blockflags = fetch_block(&wiki.url, &self.name).await?;
                 let partial = blockflags.into_iter().all(|flags| flags.partial);
                 match (blocked, partial) {
-                    (EmbeddableBlockKind::NotBlocked, true) => {
-                        blocked = EmbeddableBlockKind::PartiallyBlocked
-                    }
+                    (BlockKind::NotBlocked, true) => blocked = BlockKind::PartiallyBlocked,
                     (_, true) => {}
-                    (_, false) => blocked = EmbeddableBlockKind::FullyBlocked,
+                    (_, false) => blocked = BlockKind::Blocked,
                 };
                 blocks.push(EmbeddableBlockInfo {
                     expiry: info.expiry,

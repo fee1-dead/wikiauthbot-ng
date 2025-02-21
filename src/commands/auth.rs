@@ -1,3 +1,4 @@
+use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -12,10 +13,12 @@ use serenity::builder::{CreateEmbed, CreateEmbedFooter, EditInteractionResponse}
 use tokio::spawn;
 use tokio::time::timeout;
 use tracing::error;
-use wikiauthbot_common::{AuthRequest, SuccessfulAuth};
+use wikiauthbot_common::{webhook_println, AuthRequest, SuccessfulAuth};
 use wikiauthbot_db::{DatabaseConnection, DatabaseConnectionInGuild, msg};
 
 use crate::{Context, Result};
+
+use super::whois::{check_blocks, fetch_whois, update_roles};
 
 pub async fn handle_interactions(
     ctx: serenity::client::Context,
@@ -52,7 +55,7 @@ pub async fn handle_interactions(
                     .await?;
                 return Ok(());
             }
-            id => tracing::error!("invalid custom id: {id}"),
+            id => error!("invalid custom id: {id}"),
         }
     }
 
@@ -115,7 +118,7 @@ pub async fn auth_data_already_exists(
         )
         .await
         {
-            tracing::error!(?e, "Error occured while handling interactions.");
+            error!(?e, "Error occured while handling interactions.");
         }
     });
     Ok(())
@@ -191,7 +194,7 @@ pub async fn auth(ctx: Context<'_>) -> Result {
     Ok(())
 }
 
-pub async fn handle_successful_auth(
+pub async fn handle_successful_auth_inner(
     SuccessfulAuth {
         central_user_id,
         discord_user_id,
@@ -201,48 +204,45 @@ pub async fn handle_successful_auth(
     }: SuccessfulAuth,
     http: &Arc<Http>,
     parent_db: &DatabaseConnection,
-) {
+    client: &mwapi::Client,
+) -> Result<ControlFlow<()>> {
     let wmf_id = central_user_id;
     let discord_user_id = UserId::from(discord_user_id);
     let guild = GuildId::from(guild_id);
     let parent_db = parent_db.in_guild(guild);
 
-    let res = if brand_new {
-        parent_db.full_auth(discord_user_id.get(), wmf_id).await
+    let whois = fetch_whois(client, wmf_id).await?;
+    let whois = whois.into_embeddable(discord_user_id).await?;
+
+    if check_blocks(http, &parent_db, discord_user_id, &whois).await?.is_break() {
+        return Ok(ControlFlow::Break(()));
+    }
+
+    if brand_new {
+        parent_db.full_auth(discord_user_id.get(), wmf_id).await?
     } else {
-        parent_db.partial_auth(discord_user_id.get()).await
+        parent_db.partial_auth(discord_user_id.get()).await?
     };
 
-    if let Err(e) = res {
-        tracing::error!(%e, "failed to insert authenticated!");
-        return;
+    if let Some(auth_log_channel_id) = parent_db.auth_log_channel_id() {
+        let mention = Mention::User(discord_user_id).to_string();
+        let user_link = parent_db.user_link(&username)?;
+        let authlog = msg!(
+            parent_db,
+            "authlog",
+            mention = &mention,
+            username = &username,
+            user_link = &*user_link,
+            wmf_id = wmf_id
+        );
+        let authlog = authlog.unwrap();
+        CreateMessage::new()
+            .content(authlog)
+            .execute(&http, (auth_log_channel_id.into(), Some(guild)))
+            .await?;
     }
 
-    let cont_token = match parent_db
-        .record_auth_message_successful(discord_user_id.into())
-        .await
-    {
-        Ok(cont_token) => cont_token,
-        Err(e) => {
-            tracing::error!(%e, "failed to record message as successful");
-            return;
-        }
-    };
-
-    let msg = parent_db
-        .get_message("authreq_successful")
-        .unwrap_or("Authentication successful".into());
-
-    let newmsg = EditInteractionResponse::new()
-        .content(msg)
-        .embeds(vec![])
-        .components(vec![]);
-    if let Err(e) = newmsg.execute(&http, &cont_token).await {
-        tracing::error!(%e, "couldn't edit");
-        return;
-    }
-
-    let auditlog = msg!(parent_db, "auditlog_successful_auth", wmf_id = wmf_id).unwrap();
+    let auditlog = msg!(parent_db, "auditlog_successful_auth", wmf_id = wmf_id)?;
 
     if let Some(authenticated_role_id) = parent_db.authenticated_role_id() {
         if let Err(e) = http
@@ -254,31 +254,71 @@ pub async fn handle_successful_auth(
             )
             .await
         {
-            eprintln!("failed to add member role to {discord_user_id} in guild {guild}: {e}");
+            tracing::error!("failed to add member role to {discord_user_id} in guild {guild}: {e}");
+            webhook_println!("failed to add member role to {discord_user_id} in guild {guild}: {e}");
         }
     }
 
-    if let Some(auth_log_channel_id) = parent_db.auth_log_channel_id() {
-        let mention = Mention::User(discord_user_id).to_string();
-        let Ok(user_link) = parent_db.user_link(&username) else {
-            tracing::error!("couldn't get user link");
+    update_roles(http, &parent_db, discord_user_id, &whois).await?;
+    
+    Ok(ControlFlow::Continue(()))
+}
+
+pub async fn handle_successful_auth(
+    successful_auth: SuccessfulAuth,
+    http: &Arc<Http>,
+    parent_db: &DatabaseConnection,
+    client: &mwapi::Client,
+) {
+    let cont_token = match parent_db
+        .get_auth_message_cont_token(successful_auth.discord_user_id)
+        .await
+    {
+        Ok(cont_token) => cont_token,
+        Err(e) => {
+            webhook_println!("failed to insert authenticated! {e}");
+            tracing::error!(?e, "failed to record message as successful");
             return;
-        };
-        let authlog = msg!(
-            parent_db,
-            "authlog",
-            mention = &mention,
-            username = &username,
-            user_link = &*user_link,
-            wmf_id = wmf_id
-        );
-        let authlog = authlog.unwrap();
-        if let Err(e) = CreateMessage::new()
-            .content(authlog)
-            .execute(&http, (auth_log_channel_id.into(), Some(guild)))
-            .await
-        {
-            error!("failed to send message to channel {auth_log_channel_id} in guild {guild}: {e}");
+        }
+    };
+    let parent_db = parent_db.in_guild(successful_auth.guild_id);
+    match handle_successful_auth_inner(successful_auth, http, &parent_db, client).await {
+        Ok(cf) => {
+            let msg = if cf.is_continue() {
+                "authreq_successful"
+            } else {
+                "auth_failed_blocked"
+            };
+            let msg = parent_db
+                .get_message(msg)
+                .unwrap();
+
+            let newmsg = EditInteractionResponse::new()
+                .content(msg)
+                .embeds(vec![])
+                .components(vec![]);
+            if let Err(e) = newmsg.execute(&http, &cont_token).await {
+                webhook_println!("couldn't edit! {e}");
+                tracing::error!(?e, "couldn't edit");
+                return;
+            }
+        }
+        Err(e) => {
+            webhook_println!("couldn't auth! {e}");
+            tracing::error!(?e, "couldn't edit for error!");
+            let msg = parent_db
+                .get_message("authreq_successful")
+                .unwrap_or("Authentication successful".into());
+
+            let newmsg = EditInteractionResponse::new()
+                .content(msg)
+                .embeds(vec![])
+                .components(vec![]);
+            if let Err(e) = newmsg.execute(&http, &cont_token).await {
+                webhook_println!("couldn't edit for error! {e}");
+                tracing::error!(?e, "couldn't edit for error!");
+                return;
+            }
         }
     }
 }

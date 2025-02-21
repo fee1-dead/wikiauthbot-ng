@@ -10,7 +10,7 @@ use fred::prelude::*;
 use fred::types::DEFAULT_JITTER_MS;
 use sqlx::mysql::{MySqlPoolOptions, MySqlRow};
 use sqlx::{MySqlPool, QueryBuilder, Row};
-use wikiauthbot_common::Config;
+use wikiauthbot_common::{BlockKind, Config};
 
 pub mod server;
 
@@ -286,8 +286,24 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         self.server_settings.as_ref().unwrap().whois_is_ephemeral
     }
 
-    pub fn disallow_blocked_users(&self) -> bool {
+    pub fn disallows_block_status(&self, status: BlockKind) -> bool {
+        match status {
+            BlockKind::NotBlocked => false,
+            BlockKind::PartiallyBlocked => self.disallows_partially_blocked_users(),
+            BlockKind::Blocked => self.disallows_blocked_users(),
+        }
+    }
+
+    pub fn disallows_blocked_users(&self) -> bool {
         !self.server_settings.as_ref().unwrap().allow_banned_users
+    }
+
+    pub fn disallows_partially_blocked_users(&self) -> bool {
+        !self
+            .server_settings
+            .as_ref()
+            .unwrap()
+            .allow_partially_blocked_users
     }
 
     pub fn has_server_settings(&self) -> bool {
