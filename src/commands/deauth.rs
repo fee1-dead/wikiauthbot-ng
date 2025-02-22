@@ -51,6 +51,7 @@ pub async fn handle_interactions(
                             mention = discord_user_id.mention().to_string()
                         )?;
                         // it is weird when we lack permissions to send to deauth log.
+                        // TODO
                         let _ = ChannelId::from(chan)
                             .send_message(&ctx, CreateMessage::new().content(msg))
                             .await;
