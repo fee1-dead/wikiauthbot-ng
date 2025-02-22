@@ -123,7 +123,7 @@ impl EmbeddableWhois {
             overflowed,
         } = self;
         let mention = Mention::User(discord_user_id).to_string();
-        let registration = registration.split_once("T").ok_or_eyre("invalid date")?.0;
+        let registration_date = registration.split_once("T").ok_or_eyre("invalid date")?.0;
         let global_groups = if !groups.is_empty() {
             let mut msg = msg!(db, "whois_global_groups", groupslist = groups.join(", "))?;
             msg.to_mut().push('\n');
@@ -157,7 +157,7 @@ impl EmbeddableWhois {
             db,
             "whois",
             mention = mention,
-            registration = registration,
+            registration = registration_date,
             home = home,
             global_groups = global_groups,
             edits = edits,
