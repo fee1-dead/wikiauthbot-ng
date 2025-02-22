@@ -11,18 +11,21 @@ use crate::{Context, Result, integrity};
 #[poise::command(prefix_command, slash_command, hide_in_help)]
 pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
     ctx.defer_ephemeral().await?;
-    let Some(mem) = ctx.author_member().await else {
-        ctx.reply("not a member").await?;
-        return Ok(());
-    };
 
     let Some(guild_id) = ctx.guild_id() else {
         ctx.reply("command must be used in a guild.").await?;
         return Ok(());
     };
 
-    let perms = mem.permissions(ctx)?;
-    if !perms.administrator() {
+    let is_server_admin = {
+        let channel = ctx.guild_channel().await.unwrap();
+        let member = ctx.author_member().await.unwrap();
+        ctx.guild()
+            .unwrap()
+            .user_permissions_in(&channel, &member)
+            .administrator()
+    };
+    if !is_server_admin {
         ctx.reply("You must have the Administrator permission to use this command.")
             .await?;
         return Ok(());
@@ -70,11 +73,13 @@ pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
 #[poise::command(prefix_command, dm_only, hide_in_help)]
 pub async fn unauthed_list(ctx: Context<'_>, guild_id: GuildId) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
-    let is_server_admin = guild_id
-        .member(ctx, ctx.author().id)
-        .await?
-        .permissions(ctx)?
-        .administrator();
+    let is_server_admin = {
+        let guild = ctx.cache().guild(guild_id).unwrap();
+        let channel = guild.channels.iter().next().unwrap().1;
+        guild
+            .user_permissions_in(channel, &guild.members[&ctx.author().id])
+            .administrator()
+    };
 
     if !is_bot_owner && !is_server_admin {
         ctx.reply("Must be a bot owner or server admin to use this command.")
@@ -131,11 +136,14 @@ pub async fn premigrate_server_check(
     role_id: RoleId,
 ) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
-    let is_server_admin = guild_id
-        .member(ctx, ctx.author().id)
-        .await?
-        .permissions(ctx)?
-        .administrator();
+
+    let is_server_admin = {
+        let guild = ctx.cache().guild(guild_id).unwrap();
+        let channel = guild.channels.iter().next().unwrap().1;
+        guild
+            .user_permissions_in(channel, &guild.members[&ctx.author().id])
+            .administrator()
+    };
 
     if !is_bot_owner && !is_server_admin {
         ctx.reply("Must be a bot owner or server admin to use this command.")
@@ -214,12 +222,20 @@ pub async fn server_settings_sanity_check(
     let channels = guild.channels(ctx).await?;
     let id = ctx.serenity_context().cache.current_user().id;
     let member = guild_id.member(ctx, id).await?;
-    if !member.permissions(ctx)?.manage_roles() {
+    if !guild
+        .user_permissions_in(channels.values().next().unwrap(), &member)
+        .manage_roles()
+    {
         ctx.reply("Please give the bot permissions to manage roles")
             .await?;
         return Ok(false);
     }
-    let bot_pos = member.highest_role_info(ctx).unwrap().1;
+    let bot_pos = ctx
+        .guild()
+        .unwrap()
+        .member_highest_role(&member)
+        .unwrap()
+        .position;
     let role_id = RoleId::new(*authenticated_role_id);
     let Some(role) = guild.roles.get(&role_id) else {
         ctx.reply("The bot is unable to get information about the role ID specified. Please make sure the role ID is correct and try again.").await?;
@@ -251,7 +267,7 @@ pub async fn server_settings_sanity_check(
             )).await?;
             return Ok(false);
         };
-        let perms = chan.permissions_for_user(ctx, id)?;
+        let perms = guild.user_permissions_in(chan, &member);
         if !perms.send_messages() {
             ctx.reply(format!("Oops! Looks like I cannot send message in the {desc}. Please make sure the bot has the right permissions and try again.")).await?;
             return Ok(false);
@@ -282,11 +298,14 @@ pub async fn setup_server(
     allow_partially_blocked_users: bool,
 ) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
-    let is_server_admin = guild_id
-        .member(ctx, ctx.author().id)
-        .await?
-        .permissions(ctx)?
-        .administrator();
+
+    let is_server_admin = {
+        let guild = ctx.cache().guild(guild_id).unwrap();
+        let channel = &guild.channels[&ChannelId::new(welcome_channel_id)];
+        guild
+            .user_permissions_in(channel, &guild.members[&ctx.author().id])
+            .administrator()
+    };
 
     if !is_bot_owner && !is_server_admin {
         ctx.reply("Must be a bot owner or server admin to use this command.")

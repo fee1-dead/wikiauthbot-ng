@@ -1,8 +1,9 @@
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use actix_web::dev::Server;
 use actix_web::http::StatusCode;
-use actix_web::{App, HttpResponseBuilder, HttpServer, Responder, get, web};
+use actix_web::{App, HttpServer, Responder, get, web};
 use reqwest::{Client, ClientBuilder};
 use wikiauthbot_common::Config;
 use wikiauthbot_db::DatabaseConnection;
@@ -53,12 +54,14 @@ async fn authorize(
 ) -> impl Responder {
     if let Some(error) = error {
         let message = message.or(error_description).unwrap_or(error);
-        return HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body(format!("Error: {message}"));
+        return (
+            Cow::from(format!("Error: {message}")),
+            StatusCode::BAD_REQUEST,
+        );
     }
 
     let Ok(Some(auth_req)) = app_state.db.get_auth_req(&state).await else {
-        return HttpResponseBuilder::new(StatusCode::NOT_FOUND)
-            .body("Auth request was expired or invalid.\nPlease contact beef.w on Discord if the problem persists.");
+        return ("Auth request was expired or invalid.\nPlease contact beef.w on Discord if the problem persists.".into(), StatusCode::NOT_FOUND);
     };
 
     let params = &[
@@ -75,13 +78,11 @@ async fn authorize(
         .send()
         .await
     else {
-        return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("error while communicating with wikimedia server\nPlease contact beef.w on Discord if the problem persists.");
+        return ("error while communicating with wikimedia server\nPlease contact beef.w on Discord if the problem persists.".into(), StatusCode::INTERNAL_SERVER_ERROR);
     };
 
     let Ok(AccessTokenResponse { access_token }) = res.json().await else {
-        return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("error while getting access token from server\nPlease contact beef.w on Discord if the problem persists.");
+        return ("error while getting access token from server\nPlease contact beef.w on Discord if the problem persists.".into(), StatusCode::INTERNAL_SERVER_ERROR);
     };
 
     let Ok(res) = app_state
@@ -91,18 +92,17 @@ async fn authorize(
         .send()
         .await
     else {
-        return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("error while retrieving user profile\nPlease contact beef.w on Discord if the problem persists.");
+        return ("error while retrieving user profile\nPlease contact beef.w on Discord if the problem persists.".into(), StatusCode::INTERNAL_SERVER_ERROR);
     };
 
     let Ok(UserProfileResponse { sub, username }) = res.json().await else {
-        return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("error while parsing user profile\nPlease contact beef.w on Discord if the problem persists.");
+        return ("error while parsing user profile\nPlease contact beef.w on Discord if the problem persists.".into(), StatusCode::INTERNAL_SERVER_ERROR);
     };
 
     let Ok(sub) = sub.parse::<u32>() else {
-        return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR).body(
-            "error while parsing user id\nPlease contact beef.w on Discord if the problem persists.",
+        return (
+            "error while parsing user id\nPlease contact beef.w on Discord if the problem persists.".into(),
+            StatusCode::INTERNAL_SERVER_ERROR
         );
     };
 
@@ -111,11 +111,10 @@ async fn authorize(
 
     let success = auth_req.into_successful(sub, username);
     let Ok(()) = app_state.db.send_successful_req(success).await else {
-        return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
-            .body("failed to deliver successful auth request :(\nPlease contact beef.w on Discord if the problem persists.");
+        return ("failed to deliver successful auth request :(\nPlease contact beef.w on Discord if the problem persists.".into(), StatusCode::INTERNAL_SERVER_ERROR);
     };
 
-    HttpResponseBuilder::new(StatusCode::OK).body(success_msg)
+    (success_msg, StatusCode::OK)
 }
 
 #[must_use]

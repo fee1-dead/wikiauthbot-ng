@@ -35,13 +35,15 @@ pub async fn handle_interactions(
                     // N.B. the user might have quit the server. silently remove information is fine?
                     // TODO figure out more on the leaving server piece.
                     if let Err(_) = ctx.http.get_member(guild, discord_user_id).await {
-                        continue
+                        continue;
                     }
 
                     let msg = msg!(db, "deauth_audit_log")?;
                     for role in db.all_managed_roles() {
                         // https://github.com/discord/discord-api-docs/issues/1998
-                        ctx.http.remove_member_role(guild, discord_user_id, role.into(), Some(&msg)).await?;
+                        ctx.http
+                            .remove_member_role(guild, discord_user_id, role.into(), Some(&msg))
+                            .await?;
                     }
 
                     if let Some(chan) = db.deauth_log_channel_id() {
