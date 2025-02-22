@@ -50,9 +50,10 @@ pub async fn handle_interactions(
                             "deauth_log",
                             mention = discord_user_id.mention().to_string()
                         )?;
-                        ChannelId::from(chan)
+                        // it is weird when we lack permissions to send to deauth log.
+                        let _ = ChannelId::from(chan)
                             .send_message(&ctx, CreateMessage::new().content(msg))
-                            .await?;
+                            .await;
                     }
                 }
                 let (_, num_servers_authed) = db.full_deauth(discord_user_id.get()).await?;
