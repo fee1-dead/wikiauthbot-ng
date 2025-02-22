@@ -80,16 +80,16 @@ pub(crate) async fn update_roles(
 
                 let groups: Vec<String> = serde_json::from_value(v)?;
 
-                if groups.contains(&rule.group) {
+                if groups.contains(&rule.group_name) {
                     roles_after.insert(rule.role_id.into());
                 }
             } else if (rule.wiki == "*" || rule.wiki == "global")
-                && whois.groups.contains(&rule.group)
+                && whois.groups.contains(&rule.group_name)
             {
                 roles_after.insert(rule.role_id.into());
             } else {
                 for wiki in &whois.wikis {
-                    if wiki.wiki == rule.wiki && wiki.groups.contains(&rule.group) {
+                    if wiki.wiki == rule.wiki && wiki.groups.contains(&rule.group_name) {
                         roles_after.insert(rule.role_id.into());
                     }
                 }

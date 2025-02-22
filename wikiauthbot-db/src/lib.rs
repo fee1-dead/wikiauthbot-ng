@@ -19,7 +19,7 @@ pub struct RoleRule {
     /// e.g. `zhwiki`, or `*` to take in any wiki/global group
     pub wiki: String,
     /// e.g. `autoconfirmed`
-    pub group: String,
+    pub group_name: String,
     /// non-empty and in the form of `"https://zh.wikipedia.org"`` if needs separate query pending https://phabricator.wikimedia.org/T387029
     pub implicit_api_url: String,
     pub role_id: NonZeroU64,
@@ -147,11 +147,11 @@ impl DatabaseConnection {
                     $(let $name = row.get(stringify!($name));)*
                 };
             }
-            fetch!(wiki, group, implicit_api_url,);
+            fetch!(wiki, group_name, implicit_api_url);
 
             let data = RoleRule {
                 wiki,
-                group,
+                group_name,
                 implicit_api_url,
                 role_id,
             };
@@ -528,7 +528,7 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         separated
             .push_bind(self.guild_id.get())
             .push_bind(rule.wiki)
-            .push_bind(rule.group)
+            .push_bind(rule.group_name)
             .push_bind(rule.implicit_api_url)
             .push_bind(rule.role_id.get());
         separated.push_unseparated(")");

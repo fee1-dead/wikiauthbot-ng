@@ -402,7 +402,7 @@ pub async fn set_server_whois_is_ephemeral(
 }
 
 #[poise::command(prefix_command, dm_only, hide_in_help)]
-pub async fn add_role_rule(ctx: Context<'_>, guild_id: GuildId, wiki: String, group: String, implicit_api_url: String, role_id: u64) -> Result {
+pub async fn add_role_rule(ctx: Context<'_>, guild_id: GuildId, wiki: String, group_name: String, implicit_api_url: String, role_id: u64) -> Result {
     ctx.defer_ephemeral().await?;
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
 
@@ -418,7 +418,7 @@ pub async fn add_role_rule(ctx: Context<'_>, guild_id: GuildId, wiki: String, gr
     let mut db = ctx.data().db.in_guild(guild_id);
     db.add_role_rule(RoleRule {
         wiki,
-        group,
+        group_name,
         implicit_api_url,
         role_id,
     }).await?;
