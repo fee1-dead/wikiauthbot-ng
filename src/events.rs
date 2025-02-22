@@ -59,7 +59,10 @@ pub async fn event_handler(
                     match fetch_whois(&u.client, whois.wikimedia_id).await {
                         Ok(whois) => {
                             let whois = whois.into_embeddable(discord_id).await?;
-                            if check_blocks(&ctx.http, &db, discord_id, &whois).await?.is_continue() {
+                            if check_blocks(&ctx.http, &db, discord_id, &whois)
+                                .await?
+                                .is_continue()
+                            {
                                 update_roles(&ctx.http, &db, discord_id, &whois).await?;
                             }
                             let name = whois.name;

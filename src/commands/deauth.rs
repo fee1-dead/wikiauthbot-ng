@@ -31,17 +31,19 @@ pub async fn handle_interactions(
                 for guild in guilds {
                     let guild = GuildId::new(guild);
                     let db = db.in_guild(guild);
-                    if let Some(role) = db.authenticated_role_id() {
-                        let msg = msg!(db, "deauth_audit_log")?;
-                        ctx.http
-                            .remove_member_role(
-                                guild,
-                                discord_user_id,
-                                RoleId::from(role),
-                                Some(&msg),
-                            )
-                            .await?;
+
+                    // N.B. the user might have quit the server. silently remove information is fine?
+                    // TODO figure out more on the leaving server piece.
+                    if let Err(_) = ctx.http.get_member(guild, discord_user_id).await {
+                        continue
                     }
+
+                    let msg = msg!(db, "deauth_audit_log")?;
+                    for role in db.all_managed_roles() {
+                        // https://github.com/discord/discord-api-docs/issues/1998
+                        ctx.http.remove_member_role(guild, discord_user_id, role.into(), Some(&msg)).await?;
+                    }
+
                     if let Some(chan) = db.deauth_log_channel_id() {
                         let msg = msg!(
                             db,
@@ -66,9 +68,10 @@ pub async fn handle_interactions(
             }
             "yes_single" | "partial" => {
                 // do stuff on discord side first, before removing from db.
-                if let Some(role) = db.authenticated_role_id() {
-                    let guild = GuildId::from(db.guild_id());
-                    let msg = msg!(db, "deauth_audit_log")?;
+                let guild = GuildId::from(db.guild_id());
+                let msg = msg!(db, "deauth_audit_log")?;
+                for role in db.all_managed_roles() {
+                    // https://github.com/discord/discord-api-docs/issues/1998
                     ctx.http
                         .remove_member_role(guild, discord_user_id, RoleId::from(role), Some(&msg))
                         .await?;

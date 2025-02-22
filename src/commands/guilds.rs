@@ -402,7 +402,14 @@ pub async fn set_server_whois_is_ephemeral(
 }
 
 #[poise::command(prefix_command, dm_only, hide_in_help)]
-pub async fn add_role_rule(ctx: Context<'_>, guild_id: GuildId, wiki: String, group_name: String, implicit_api_url: String, role_id: u64) -> Result {
+pub async fn add_role_rule(
+    ctx: Context<'_>,
+    guild_id: GuildId,
+    wiki: String,
+    group_name: String,
+    implicit_api_url: String,
+    role_id: u64,
+) -> Result {
     ctx.defer_ephemeral().await?;
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
 
@@ -413,7 +420,7 @@ pub async fn add_role_rule(ctx: Context<'_>, guild_id: GuildId, wiki: String, gr
     }
     let Some(role_id) = NonZeroU64::new(role_id) else {
         ctx.reply("role id must be non zero").await?;
-        return Ok(())
+        return Ok(());
     };
     let mut db = ctx.data().db.in_guild(guild_id);
     db.add_role_rule(RoleRule {
@@ -421,7 +428,8 @@ pub async fn add_role_rule(ctx: Context<'_>, guild_id: GuildId, wiki: String, gr
         group_name,
         implicit_api_url,
         role_id,
-    }).await?;
+    })
+    .await?;
     ctx.reply("done! uwu").await?;
     Ok(())
 }
@@ -439,6 +447,7 @@ pub async fn remove_role_rule(ctx: Context<'_>, guild_id: GuildId, role_id: u64)
 
     let mut db = ctx.data().db.in_guild(guild_id);
     let count = db.remove_role_rule(role_id).await?;
-    ctx.reply(format!("done! uwu (affected {count} rows)")).await?;
+    ctx.reply(format!("done! uwu (affected {count} rows)"))
+        .await?;
     Ok(())
 }

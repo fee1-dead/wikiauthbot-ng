@@ -1,6 +1,6 @@
 use serenity::all::{GatewayIntents, UserId};
 use serenity::client::ClientBuilder;
-use wikiauthbot_common::{webhook_println, Config};
+use wikiauthbot_common::{Config, webhook_println};
 use wikiauthbot_db::DatabaseConnection;
 
 pub mod commands;

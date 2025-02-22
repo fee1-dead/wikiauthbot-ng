@@ -108,7 +108,9 @@ pub async fn sqlite_to_mariadb(sqlite: SqlitePool, sql: MySqlPool) -> color_eyre
 async fn main_inner() -> color_eyre::Result<()> {
     println!("Connecting to sqlite and writing to mariadb..");
     let sql = wikiauthbot_db::DatabaseConnection::connect_mysql().await?;
-    sqlx::migrate!("../wikiauthbot-db/src/migrations").run(&sql).await?;
+    sqlx::migrate!("../wikiauthbot-db/src/migrations")
+        .run(&sql)
+        .await?;
     /*let options = SqliteConnectOptions::new().filename("wikiauthbot-prod.db");
     let sqlite = SqlitePoolOptions::new()
     .max_connections(100)

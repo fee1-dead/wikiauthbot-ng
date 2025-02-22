@@ -72,4 +72,10 @@ deauth_more_multi_done = Suppression réussie des données d'authentification de
 deauth_log = {$mention} s'est désauthentifié·ée de ce serveur.
 deauth_audit_log = Désauthentifié·ée
 
+auth_failed_blocked = Authentication failed: You have been blocked from one or more Wikimedia projects, which prevents authentication to this server. Contact the server admins for help.
+auth_failed_error = Authentication failed: An internal error has occured. Please contact beef.w on Discord for reporting bugs.
+removed_blocked_user_roles = Removed role from blocked user
+adding_managed_role = Adding bot-managed role for meeting criteria
+removing_managed_role = Removing bot-managed role as user no longer meets criteria
+
 server_auth_success = Succès ! Informations d'autorisation envoyées au bot :)

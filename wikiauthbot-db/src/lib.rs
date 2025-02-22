@@ -595,6 +595,15 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             .and_then(NonZeroU64::new)
     }
 
+    pub fn all_managed_roles(&self) -> impl Iterator<Item = NonZeroU64> + '_ {
+        self.server_settings
+            .as_ref()
+            .map(|data: &ServerSettingsData| data.authenticated_role_id)
+            .and_then(NonZeroU64::new)
+            .into_iter()
+            .chain(self.role_rules().iter().flatten().map(|rule| rule.role_id))
+    }
+
     pub fn whois_is_ephemeral(&self) -> bool {
         self.server_settings.as_ref().unwrap().whois_is_ephemeral
     }
