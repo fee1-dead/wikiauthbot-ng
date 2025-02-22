@@ -13,12 +13,11 @@ use serenity::builder::{CreateEmbed, CreateEmbedFooter, EditInteractionResponse}
 use tokio::spawn;
 use tokio::time::timeout;
 use tracing::error;
-use wikiauthbot_common::{webhook_println, AuthRequest, SuccessfulAuth};
+use wikiauthbot_common::{AuthRequest, SuccessfulAuth, webhook_println};
 use wikiauthbot_db::{DatabaseConnection, DatabaseConnectionInGuild, msg};
 
-use crate::{Context, Result};
-
 use super::whois::{check_blocks, fetch_whois, update_roles};
+use crate::{Context, Result};
 
 pub async fn handle_interactions(
     ctx: serenity::client::Context,
@@ -214,7 +213,10 @@ pub async fn handle_successful_auth_inner(
     let whois = fetch_whois(client, wmf_id).await?;
     let whois = whois.into_embeddable(discord_user_id).await?;
 
-    if check_blocks(http, &parent_db, discord_user_id, &whois).await?.is_break() {
+    if check_blocks(http, &parent_db, discord_user_id, &whois)
+        .await?
+        .is_break()
+    {
         return Ok(ControlFlow::Break(()));
     }
 
@@ -255,12 +257,14 @@ pub async fn handle_successful_auth_inner(
             .await
         {
             tracing::error!("failed to add member role to {discord_user_id} in guild {guild}: {e}");
-            webhook_println!("failed to add member role to {discord_user_id} in guild {guild}: {e}");
+            webhook_println!(
+                "failed to add member role to {discord_user_id} in guild {guild}: {e}"
+            );
         }
     }
 
     update_roles(http, &parent_db, discord_user_id, &whois).await?;
-    
+
     Ok(ControlFlow::Continue(()))
 }
 
@@ -289,9 +293,7 @@ pub async fn handle_successful_auth(
             } else {
                 "auth_failed_blocked"
             };
-            let msg = parent_db
-                .get_message(msg)
-                .unwrap();
+            let msg = parent_db.get_message(msg).unwrap();
 
             let newmsg = EditInteractionResponse::new()
                 .content(msg)

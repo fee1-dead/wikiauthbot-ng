@@ -15,10 +15,283 @@ use wikiauthbot_common::{BlockKind, Config};
 pub mod server;
 
 #[derive(Clone)]
+pub struct RoleRule {
+    /// e.g. `zhwiki`, or `*` to take in any wiki/global group
+    pub wiki: String,
+    /// e.g. `autoconfirmed`
+    pub group: String,
+    /// non-empty and in the form of `"https://zh.wikipedia.org"`` if needs separate query pending https://phabricator.wikimedia.org/T387029
+    pub implicit_api_url: String,
+    pub role_id: NonZeroU64,
+}
+
+#[derive(Clone)]
 pub struct DatabaseConnection {
     redis: RedisClient,
     sql: MySqlPool,
     servers: DashMap<NonZeroU64, ServerSettingsData>,
+    roles: DashMap<NonZeroU64, Vec<RoleRule>>,
+}
+
+pub struct ChildDatabaseConnection {
+    redis: RedisClient,
+}
+
+async fn make_and_init_redis_client(config: RedisConfig) -> RedisResult<RedisClient> {
+    let mut builder = Builder::from_config(config);
+    builder.set_policy(ReconnectPolicy::Constant {
+        attempts: 0,
+        max_attempts: 10,
+        delay: 1000,
+        jitter: DEFAULT_JITTER_MS,
+    });
+    let mut conn_config = ConnectionConfig::default();
+    conn_config.unresponsive.max_timeout = Some(Duration::from_secs(10));
+    builder.set_connection_config(conn_config);
+    let client = try_redis(builder.build())?;
+    try_redis(client.init().await)?;
+    Ok(client)
+}
+
+impl DatabaseConnection {
+    async fn new(redis: RedisClient, sql: MySqlPool) -> color_eyre::Result<Self> {
+        sqlx::migrate!("./src/migrations").run(&sql).await?;
+
+        let servers = Self::load_server_settings(&sql).await?;
+        let roles = Self::load_server_role_rules(&sql).await?;
+        Ok(Self {
+            redis,
+            sql,
+            servers,
+            roles,
+        })
+    }
+    async fn load_server_settings(
+        sql: &MySqlPool,
+    ) -> color_eyre::Result<DashMap<NonZeroU64, ServerSettingsData>> {
+        let all_settings = sqlx::query(
+            "select
+            guild_id,
+            welcome_channel_id,
+            auth_log_channel_id,
+            deauth_log_channel_id,
+            authenticated_role_id,
+            server_language,
+            allow_banned_users,
+            whois_is_ephemeral,
+            allow_partially_blocked_users
+        from guilds",
+        )
+        .fetch_all(sql)
+        .await?;
+
+        let map = DashMap::new();
+        for row in all_settings {
+            let id: u64 = row.get("guild_id");
+            let guild_id = NonZeroU64::new(id).unwrap();
+            macro_rules! fetch {
+                ($($name:ident),*$(,)?) => {
+                    $(let $name = row.get(stringify!($name));)*
+                };
+            }
+            fetch!(
+                welcome_channel_id,
+                auth_log_channel_id,
+                deauth_log_channel_id,
+                authenticated_role_id,
+                server_language,
+                allow_banned_users,
+                whois_is_ephemeral,
+                allow_partially_blocked_users,
+            );
+
+            let data = ServerSettingsData {
+                welcome_channel_id,
+                auth_log_channel_id,
+                deauth_log_channel_id,
+                authenticated_role_id,
+                server_language,
+                allow_banned_users,
+                whois_is_ephemeral,
+                allow_partially_blocked_users,
+            };
+            map.insert(guild_id, data);
+        }
+
+        Ok(map)
+    }
+
+    async fn load_server_role_rules(
+        sql: &MySqlPool,
+    ) -> color_eyre::Result<DashMap<NonZeroU64, Vec<RoleRule>>> {
+        let all_rules = sqlx::query(
+            "select
+            guild_id,
+            wiki,
+            group,
+            implicit_api_url,
+            role_id
+        from guild_roles",
+        )
+        .fetch_all(sql)
+        .await?;
+
+        let map = DashMap::<_, Vec<_>>::new();
+        for row in all_rules {
+            let guild_id: u64 = row.get("guild_id");
+            let guild_id = NonZeroU64::new(guild_id).unwrap();
+            let role_id: u64 = row.get("role_id");
+            let role_id = NonZeroU64::new(role_id).unwrap();
+            macro_rules! fetch {
+                ($($name:ident),*$(,)?) => {
+                    $(let $name = row.get(stringify!($name));)*
+                };
+            }
+            fetch!(wiki, group, implicit_api_url,);
+
+            let data = RoleRule {
+                wiki,
+                group,
+                implicit_api_url,
+                role_id,
+            };
+            if let Some((_, mut rules)) = map.remove(&guild_id) {
+                rules.push(data);
+                map.insert(guild_id, rules);
+            } else {
+                map.insert(guild_id, vec![data]);
+            }
+        }
+
+        Ok(map)
+    }
+
+    pub async fn connect_mysql() -> color_eyre::Result<MySqlPool> {
+        Ok(MySqlPoolOptions::new()
+            .connect(&Config::get()?.sql_url)
+            .await?)
+    }
+    pub async fn prod() -> color_eyre::Result<Self> {
+        let cfg = Config::get()?;
+        let password = &cfg.redis_password;
+        let url = format!("redis://:{password}@redis");
+        let redis = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
+        Self::new(redis, Self::connect_mysql().await?).await
+    }
+
+    /// Use a tunnel to the redis server.
+    pub async fn prod_tunnelled() -> color_eyre::Result<Self> {
+        let cfg = Config::get()?;
+        let password = &cfg.redis_password;
+        let url = format!("redis://:{password}@127.0.0.1:16379");
+        let redis = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
+
+        Self::new(redis, Self::connect_mysql().await?).await
+    }
+
+    pub fn into_parts(self) -> (RedisClient, MySqlPool) {
+        (self.redis, self.sql)
+    }
+
+    pub async fn get_child(&self) -> RedisResult<ChildDatabaseConnection> {
+        let redis = self.redis.clone_new();
+        try_redis(redis.init().await)?;
+        Ok(ChildDatabaseConnection { redis })
+    }
+
+    pub async fn ping(&self) -> color_eyre::Result<Duration> {
+        let instant = Instant::now();
+        let _ = sqlx::query("select 1 from auth where user_id = 468253584421552139")
+            .fetch_one(&self.sql)
+            .await?;
+        Ok(instant.elapsed())
+    }
+}
+
+#[derive(Debug)]
+pub struct WhoisResult {
+    pub wikimedia_id: u32,
+}
+
+#[derive(Clone)]
+pub struct ServerSettingsData {
+    pub welcome_channel_id: u64,
+    pub auth_log_channel_id: u64,
+    pub deauth_log_channel_id: u64,
+    pub authenticated_role_id: u64,
+    pub server_language: String,
+    pub allow_banned_users: bool,
+    pub whois_is_ephemeral: bool,
+    pub allow_partially_blocked_users: bool,
+}
+
+fn try_redis<T>(x: RedisResult<T>) -> RedisResult<T> {
+    match x {
+        Ok(x) => Ok(x),
+        Err(redis) => match redis.kind() {
+            RedisErrorKind::IO
+            | RedisErrorKind::Timeout
+            | RedisErrorKind::Canceled
+            | RedisErrorKind::Unknown => {
+                eprintln!("crashing due to error: {redis}");
+                exit(1)
+            }
+            _ => Err(redis),
+        },
+    }
+}
+
+impl DatabaseConnection {
+    pub async fn user_is_authed(&self, discord_id: u64) -> color_eyre::Result<bool> {
+        let row = sqlx::query("select exists(select 1 from users where discord_id = ?)")
+            .bind(discord_id)
+            .fetch_one(&self.sql)
+            .await?;
+        Ok(row.try_get(0)?)
+    }
+
+    pub async fn full_deauth(&self, discord_id: u64) -> color_eyre::Result<(u64, u64)> {
+        let txn = self.sql.begin().await?;
+        let a = sqlx::query("delete from auths where user_id = ?")
+            .bind(discord_id)
+            .execute(&self.sql)
+            .await?
+            .rows_affected();
+        let b = sqlx::query("delete from users where discord_id = ?")
+            .bind(discord_id)
+            .execute(&self.sql)
+            .await?
+            .rows_affected();
+        txn.commit().await?;
+        Ok((a, b))
+    }
+
+    pub async fn get_wikimedia_id(&self, discord_id: u64) -> color_eyre::Result<Option<u32>> {
+        let row = sqlx::query("select wikimedia_id from users where discord_id = ?")
+            .bind(discord_id)
+            .fetch_optional(&self.sql)
+            .await?;
+        Ok(row.map(|r| r.get(0)))
+    }
+
+    pub fn in_guild(&self, guild_id: impl Into<NonZeroU64>) -> DatabaseConnectionInGuild<'_> {
+        let guild_id = guild_id.into();
+        DatabaseConnectionInGuild {
+            inner: self,
+            guild_id,
+            server_settings: self.servers.get(&guild_id).map(|x| x.value().clone()),
+            role_rules: self.roles.get(&guild_id).map(|x| x.value().clone()),
+        }
+    }
+
+    pub async fn wmf_auth(&self, discord_id: u64, wikimedia_id: u32) -> color_eyre::Result<()> {
+        sqlx::query("INSERT INTO users VALUES(?, ?)")
+            .bind(discord_id)
+            .bind(wikimedia_id)
+            .execute(&self.sql)
+            .await?;
+        Ok(())
+    }
 }
 
 #[derive(Clone)]
@@ -26,6 +299,7 @@ pub struct DatabaseConnectionInGuild<'a> {
     inner: &'a DatabaseConnection,
     guild_id: NonZeroU64,
     server_settings: Option<ServerSettingsData>,
+    role_rules: Option<Vec<RoleRule>>,
 }
 
 #[macro_export]
@@ -44,6 +318,10 @@ impl<'a> DatabaseConnectionInGuild<'a> {
 
     pub fn server_settings(&self) -> &Option<ServerSettingsData> {
         &self.server_settings
+    }
+
+    pub fn role_rules(&self) -> &Option<Vec<RoleRule>> {
+        &self.role_rules
     }
 
     pub async fn is_user_authed_in_server(&self, discord_id: u64) -> color_eyre::Result<bool> {
@@ -240,6 +518,41 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         Ok(())
     }
 
+    pub async fn add_role_rule(&mut self, rule: RoleRule) -> color_eyre::Result<()> {
+        let mut rules = self.role_rules.take().unwrap_or_default();
+        rules.push(rule.clone());
+        self.roles.insert(self.guild_id, rules.clone());
+        self.role_rules = Some(rules);
+        let mut q = QueryBuilder::new("INSERT INTO guild_roles VALUES(");
+        let mut separated = q.separated(", ");
+        separated
+            .push_bind(self.guild_id.get())
+            .push_bind(rule.wiki)
+            .push_bind(rule.group)
+            .push_bind(rule.implicit_api_url)
+            .push_bind(rule.role_id.get());
+        separated.push_unseparated(")");
+        q.build().execute(&self.sql).await?;
+        Ok(())
+    }
+
+    pub async fn remove_role_rule(&mut self, role_id: u64) -> color_eyre::Result<u64> {
+        if let Some(rules) = self.role_rules.as_mut() {
+            rules.retain_mut(|x| x.role_id.get() != role_id);
+
+            Ok(
+                sqlx::query("delete from guild_roles where guild_id = ? and role_id = ?")
+                    .bind(self.guild_id.get())
+                    .bind(role_id)
+                    .execute(&self.sql)
+                    .await?
+                    .rows_affected(),
+            )
+        } else {
+            Ok(0)
+        }
+    }
+
     /// Delete the information from a single guild. Does not remove our record
     /// of them in the `users` table.
     pub async fn partial_deauth(&self, user_id: u64) -> color_eyre::Result<bool> {
@@ -315,217 +628,5 @@ impl Deref for DatabaseConnectionInGuild<'_> {
     type Target = DatabaseConnection;
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-
-pub struct ChildDatabaseConnection {
-    redis: RedisClient,
-}
-
-async fn make_and_init_redis_client(config: RedisConfig) -> RedisResult<RedisClient> {
-    let mut builder = Builder::from_config(config);
-    builder.set_policy(ReconnectPolicy::Constant {
-        attempts: 0,
-        max_attempts: 10,
-        delay: 1000,
-        jitter: DEFAULT_JITTER_MS,
-    });
-    let mut conn_config = ConnectionConfig::default();
-    conn_config.unresponsive.max_timeout = Some(Duration::from_secs(10));
-    builder.set_connection_config(conn_config);
-    let client = try_redis(builder.build())?;
-    try_redis(client.init().await)?;
-    Ok(client)
-}
-
-impl DatabaseConnection {
-    async fn new(redis: RedisClient, sql: MySqlPool) -> color_eyre::Result<Self> {
-        let servers = Self::load_server_settings(&sql).await?;
-        sqlx::migrate!("./src/migrations").run(&sql).await?;
-        Ok(Self {
-            redis,
-            sql,
-            servers,
-        })
-    }
-    async fn load_server_settings(
-        sql: &MySqlPool,
-    ) -> color_eyre::Result<DashMap<NonZeroU64, ServerSettingsData>> {
-        let all_settings = sqlx::query(
-            "select
-            guild_id,
-            welcome_channel_id,
-            auth_log_channel_id,
-            deauth_log_channel_id,
-            authenticated_role_id,
-            server_language,
-            allow_banned_users,
-            whois_is_ephemeral,
-            allow_partially_blocked_users,
-        from guilds",
-        )
-        .fetch_all(sql)
-        .await?;
-
-        let map = DashMap::new();
-        for row in all_settings {
-            let id: u64 = row.get("guild_id");
-            let guild_id = NonZeroU64::new(id).unwrap();
-            macro_rules! fetch {
-                ($($name:ident),*$(,)?) => {
-                    $(let $name = row.get(stringify!($name));)*
-                };
-            }
-            fetch!(
-                welcome_channel_id,
-                auth_log_channel_id,
-                deauth_log_channel_id,
-                authenticated_role_id,
-                server_language,
-                allow_banned_users,
-                whois_is_ephemeral,
-                allow_partially_blocked_users,
-            );
-
-            let data = ServerSettingsData {
-                welcome_channel_id,
-                auth_log_channel_id,
-                deauth_log_channel_id,
-                authenticated_role_id,
-                server_language,
-                allow_banned_users,
-                whois_is_ephemeral,
-                allow_partially_blocked_users,
-            };
-            map.insert(guild_id, data);
-        }
-
-        Ok(map)
-    }
-
-    pub async fn connect_mysql() -> color_eyre::Result<MySqlPool> {
-        Ok(MySqlPoolOptions::new()
-            .connect(&Config::get()?.sql_url)
-            .await?)
-    }
-    pub async fn prod() -> color_eyre::Result<Self> {
-        let cfg = Config::get()?;
-        let password = &cfg.redis_password;
-        let url = format!("redis://:{password}@redis");
-        let redis = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
-        Self::new(redis, Self::connect_mysql().await?).await
-    }
-
-    /// Use a tunnel to the redis server.
-    pub async fn prod_tunnelled() -> color_eyre::Result<Self> {
-        let cfg = Config::get()?;
-        let password = &cfg.redis_password;
-        let url = format!("redis://:{password}@127.0.0.1:16379");
-        let redis = make_and_init_redis_client(try_redis(RedisConfig::from_url(&url))?).await?;
-
-        Self::new(redis, Self::connect_mysql().await?).await
-    }
-
-    pub fn into_parts(self) -> (RedisClient, MySqlPool) {
-        (self.redis, self.sql)
-    }
-
-    pub async fn get_child(&self) -> RedisResult<ChildDatabaseConnection> {
-        let redis = self.redis.clone_new();
-        try_redis(redis.init().await)?;
-        Ok(ChildDatabaseConnection { redis })
-    }
-
-    pub async fn ping(&self) -> color_eyre::Result<Duration> {
-        let instant = Instant::now();
-        let _ = sqlx::query("select 1 from auth where user_id = 468253584421552139")
-            .fetch_one(&self.sql)
-            .await?;
-        Ok(instant.elapsed())
-    }
-}
-
-#[derive(Debug)]
-pub struct WhoisResult {
-    pub wikimedia_id: u32,
-}
-
-#[derive(Clone)]
-pub struct ServerSettingsData {
-    pub welcome_channel_id: u64,
-    pub auth_log_channel_id: u64,
-    pub deauth_log_channel_id: u64,
-    pub authenticated_role_id: u64,
-    pub server_language: String,
-    pub allow_banned_users: bool,
-    pub whois_is_ephemeral: bool,
-    pub allow_partially_blocked_users: bool,
-}
-
-fn try_redis<T>(x: RedisResult<T>) -> RedisResult<T> {
-    match x {
-        Ok(x) => Ok(x),
-        Err(redis) => match redis.kind() {
-            RedisErrorKind::IO
-            | RedisErrorKind::Timeout
-            | RedisErrorKind::Canceled
-            | RedisErrorKind::Unknown => {
-                eprintln!("crashing due to error: {redis}");
-                exit(1)
-            }
-            _ => Err(redis),
-        },
-    }
-}
-
-impl DatabaseConnection {
-    pub async fn user_is_authed(&self, discord_id: u64) -> color_eyre::Result<bool> {
-        let row = sqlx::query("select exists(select 1 from users where discord_id = ?)")
-            .bind(discord_id)
-            .fetch_one(&self.sql)
-            .await?;
-        Ok(row.try_get(0)?)
-    }
-
-    pub async fn full_deauth(&self, discord_id: u64) -> color_eyre::Result<(u64, u64)> {
-        let txn = self.sql.begin().await?;
-        let a = sqlx::query("delete from auths where user_id = ?")
-            .bind(discord_id)
-            .execute(&self.sql)
-            .await?
-            .rows_affected();
-        let b = sqlx::query("delete from users where discord_id = ?")
-            .bind(discord_id)
-            .execute(&self.sql)
-            .await?
-            .rows_affected();
-        txn.commit().await?;
-        Ok((a, b))
-    }
-
-    pub async fn get_wikimedia_id(&self, discord_id: u64) -> color_eyre::Result<Option<u32>> {
-        let row = sqlx::query("select wikimedia_id from users where discord_id = ?")
-            .bind(discord_id)
-            .fetch_optional(&self.sql)
-            .await?;
-        Ok(row.map(|r| r.get(0)))
-    }
-
-    pub fn in_guild(&self, guild_id: impl Into<NonZeroU64>) -> DatabaseConnectionInGuild<'_> {
-        let guild_id = guild_id.into();
-        DatabaseConnectionInGuild {
-            inner: self,
-            guild_id,
-            server_settings: self.servers.get(&guild_id).map(|x| x.value().clone()),
-        }
-    }
-
-    pub async fn wmf_auth(&self, discord_id: u64, wikimedia_id: u32) -> color_eyre::Result<()> {
-        sqlx::query("INSERT INTO users VALUES(?, ?)")
-            .bind(discord_id)
-            .bind(wikimedia_id)
-            .execute(&self.sql)
-            .await?;
-        Ok(())
     }
 }

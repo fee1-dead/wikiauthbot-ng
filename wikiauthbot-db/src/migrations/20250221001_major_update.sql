@@ -6,9 +6,10 @@ CREATE TABLE IF NOT EXISTS guild_roles
     guild_id BIGINT UNSIGNED NOT NULL,
     wiki VARCHAR(255) NOT NULL,
     group VARCHAR(255) NOT NULL,
-    implicit BOOLEAN NOT NULL,
+    implicit_api_url VARCHAR(255) NOT NULL,
     role_id BIGINT UNSIGNED NOT NULL,
-    FOREIGN KEY (guild_id) REFERENCES guilds (guild_id) ON DELETE CASCADE
+    FOREIGN KEY (guild_id) REFERENCES guilds (guild_id) ON DELETE CASCADE,
+    UNIQUE (guild_id, role_id)
 );
 
 CREATE INDEX IF NOT EXISTS guild_roles_guild_index ON guild_roles(guild_id);

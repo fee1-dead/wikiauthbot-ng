@@ -80,9 +80,9 @@ pub struct BlockFlags {
 }
 
 pub struct EmbeddableWikiInfo {
-    wiki: String,
+    pub wiki: String,
     editcount: u64,
-    groups: Vec<String>,
+    pub groups: Vec<String>,
 }
 
 pub struct EmbeddableBlockInfo {
@@ -94,11 +94,11 @@ pub struct EmbeddableBlockInfo {
 
 pub struct EmbeddableWhois {
     discord_user_id: UserId,
-    name: String,
+    pub name: String,
     registration: String,
-    groups: Vec<String>,
+    pub groups: Vec<String>,
     /// sorted from most edits to least edits; must have at least one edit; must not be more than 10
-    wikis: Vec<EmbeddableWikiInfo>,
+    pub wikis: Vec<EmbeddableWikiInfo>,
     pub blocked: BlockKind,
     locked: bool,
     blocks: Vec<EmbeddableBlockInfo>,

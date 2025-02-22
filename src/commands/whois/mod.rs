@@ -37,7 +37,10 @@ pub async fn whois_impl(ctx: Context<'_>, user_id: UserId) -> Result {
     let whois = fetch_whois(client, wikimedia_id).await?;
     let whois = whois.into_embeddable(user_id).await?;
 
-    if check_blocks(ctx.http(), &db, user_id, &whois).await?.is_continue() {
+    if check_blocks(ctx.http(), &db, user_id, &whois)
+        .await?
+        .is_continue()
+    {
         update_roles(ctx.http(), &db, user_id, &whois).await?;
     }
 
