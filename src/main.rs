@@ -1,6 +1,6 @@
 use serenity::all::{GatewayIntents, UserId};
 use serenity::client::ClientBuilder;
-use wikiauthbot_common::Config;
+use wikiauthbot_common::{webhook_println, Config};
 use wikiauthbot_db::DatabaseConnection;
 
 pub mod commands;
@@ -54,7 +54,7 @@ async fn bot_start() -> Result<()> {
                     config,
                     db,
                 };
-                println!("data setup complete");
+                eprintln!("data setup complete");
                 Ok(data)
             })
         })
@@ -87,6 +87,7 @@ async fn bot_start() -> Result<()> {
 }
 
 async fn main_inner() -> Result<()> {
+    webhook_println!("I'm very early in the starting process :3");
     tokio::spawn(bot_start());
 
     tokio::signal::ctrl_c().await?;
