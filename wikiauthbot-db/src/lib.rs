@@ -128,7 +128,7 @@ impl DatabaseConnection {
             "select
             guild_id,
             wiki,
-            group,
+            group_name,
             implicit_api_url,
             role_id
         from guild_roles",
