@@ -6,7 +6,7 @@ use tracing::trace;
 use wikiauthbot_common::webhook_println;
 
 use crate::commands::handle_successful_auth;
-use crate::commands::whois::fetch_whois;
+use crate::commands::whois::{check_blocks, fetch_whois, update_roles};
 use crate::{Data, Error, Result};
 
 pub async fn init(ctx: &serenity::all::Context, u: &Data) -> color_eyre::Result<()> {
@@ -51,12 +51,17 @@ pub async fn event_handler(
             if let Some(chan) = db.welcome_channel_id() {
                 let mention = new_member.mention().to_string();
 
-                let content = if let Ok(Some(whois)) = db.whois(new_member.user.id.get()).await {
+                let discord_id = new_member.user.id;
+                let content = if let Ok(Some(whois)) = db.whois(discord_id.get()).await {
                     if let Some(authenticated_role) = db.authenticated_role_id() {
                         new_member.add_role(ctx, authenticated_role).await?;
                     }
                     match fetch_whois(&u.client, whois.wikimedia_id).await {
                         Ok(whois) => {
+                            let whois = whois.into_embeddable(discord_id).await?;
+                            if check_blocks(&ctx.http, &db, discord_id, &whois).await?.is_continue() {
+                                update_roles(&ctx.http, &db, discord_id, &whois).await?;
+                            }
                             let name = whois.name;
                             let user_link = db.user_link(&name)?;
                             wikiauthbot_db::msg!(
