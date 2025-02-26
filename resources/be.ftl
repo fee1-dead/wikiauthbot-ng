@@ -73,5 +73,7 @@ deauth_audit_log = Даныя праверкі сапраўднасці выда
 auth_failed_blocked = Не ўдалося праверыць сапраўднасць: Вы заблакаваныя на адным або некалькіх праектах Wikimedia, што не дазваляе прайсці праверку на гэтым серверы. Звяжыцеся да адміністратараў сервера па дапамогу.
 auth_failed_error = Не ўдалося праверыць сапраўднасць: Адбылася ўнутраная памылка. Звярніцеся да beef.w у Discord каб паведаміць пра for reporting памылкі.
 removed_blocked_user_roles = Выдаліць ролю з заблакаваных удзельнікаў
+adding_managed_role = Adding bot-managed role for meeting criteria
+removing_managed_role = Removing bot-managed role as user no longer meets criteria
 
 server_auth_success = Звесткі пра праверку сапраўднасці паспяхова адпраўленыя боту! :)
