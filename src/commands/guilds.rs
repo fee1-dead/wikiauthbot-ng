@@ -231,9 +231,7 @@ pub async fn server_settings_sanity_check(
             .await?;
         return Ok(false);
     }
-    let bot_pos = ctx
-        .guild()
-        .unwrap()
+    let bot_pos = ctx.cache().guild(guild.id).unwrap()
         .member_highest_role(&member)
         .unwrap()
         .position;
@@ -302,10 +300,22 @@ pub async fn setup_server(
     let is_bot_owner = ctx.framework().options().owners.contains(&user);
 
     let is_server_admin = {
-        let guild = ctx.http().get_guild(guild_id).await?;
-        let channels = guild.channels(ctx.http()).await?;
-        let channel = channels.get(&ChannelId::new(welcome_channel_id)).ok_or_eyre("no channel found for welcome channel")?;
-        guild.user_permissions_in(channel, &ctx.http().get_member(guild_id, user).await?).administrator()
+        let guild = guild_id.to_partial_guild(&ctx).await?;
+        let channels;
+        let mut channel = None;
+
+        if let Some(g) = ctx.cache().guild(guild_id) {
+            channel = g.channels.get(&ChannelId::new(welcome_channel_id)).cloned()
+        }
+
+        if channel.is_none() {
+            // TODO why do we hack like this to workaround not being able to hold a cacheref across an await?
+            channels = guild.channels(ctx.http()).await?;
+            channel = channels.get(&ChannelId::new(welcome_channel_id)).cloned()
+        }
+        
+        let channel = channel.ok_or_eyre("no channel found for welcome channel")?;
+        guild.user_permissions_in(&channel, &ctx.http().get_member(guild_id, user).await?).administrator()
     };
 
     if !is_bot_owner && !is_server_admin {
