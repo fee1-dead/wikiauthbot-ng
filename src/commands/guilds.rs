@@ -1,6 +1,7 @@
 use std::num::NonZeroU64;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use color_eyre::eyre::OptionExt;
 use poise::CreateReply;
 use serenity::all::{ChannelId, GuildId, RoleId};
 use serenity::futures::TryStreamExt;
@@ -297,14 +298,14 @@ pub async fn setup_server(
     whois_is_ephemeral: bool,
     allow_partially_blocked_users: bool,
 ) -> Result {
-    let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
+    let user = ctx.author().id;
+    let is_bot_owner = ctx.framework().options().owners.contains(&user);
 
     let is_server_admin = {
-        let guild = ctx.cache().guild(guild_id).unwrap();
-        let channel = &guild.channels[&ChannelId::new(welcome_channel_id)];
-        guild
-            .user_permissions_in(channel, &guild.members[&ctx.author().id])
-            .administrator()
+        let guild = ctx.http().get_guild(guild_id).await?;
+        let channels = guild.channels(ctx.http()).await?;
+        let channel = channels.get(&ChannelId::new(welcome_channel_id)).ok_or_eyre("no channel found for welcome channel")?;
+        guild.user_permissions_in(channel, &ctx.http().get_member(guild_id, user).await?).administrator()
     };
 
     if !is_bot_owner && !is_server_admin {

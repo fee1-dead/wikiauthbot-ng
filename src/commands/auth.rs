@@ -307,7 +307,7 @@ pub async fn handle_successful_auth(
         }
         Err(e) => {
             webhook_println!("couldn't auth! {e}");
-            tracing::error!(?e, "couldn't edit for error!");
+            tracing::error!(?e, "couldn't auth!");
             let msg = parent_db
                 .get_message("authreq_successful")
                 .unwrap_or("Authentication successful".into());

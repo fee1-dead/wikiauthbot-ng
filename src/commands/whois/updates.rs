@@ -78,6 +78,10 @@ pub(crate) async fn update_roles(
                     .wrap_err("querying API")?["query"]["users"][0]["groups"]
                     .take();
 
+                if v.is_null() {
+                    continue;
+                }
+
                 let groups: Vec<String> = serde_json::from_value(v)?;
 
                 if groups.contains(&rule.group_name) {
