@@ -79,7 +79,6 @@ fn get_locales_map() -> &'static HashMap<&'static str, FluentBundle<FluentResour
         let mut map = HashMap::new();
         for LocaleInfo { name, lang, file } in LOCALES {
             let mut bundle = FluentBundle::new_concurrent(vec![lang.clone()]);
-            // TODO investigate this
             bundle.set_use_isolating(false);
             let resource = FluentResource::try_new(file.to_string()).unwrap();
             bundle.add_resource(resource).unwrap();

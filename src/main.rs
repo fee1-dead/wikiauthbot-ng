@@ -12,7 +12,6 @@ mod data_private {
     use wikiauthbot_db::{DatabaseConnection, DatabaseConnectionInGuild};
 
     pub struct Data {
-        // todo: we might want to support multiple CentralAuth instances
         pub client: mwapi::Client,
         pub db: DatabaseConnection,
         pub config: &'static Config,
