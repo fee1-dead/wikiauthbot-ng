@@ -133,6 +133,11 @@ pub async fn auth(ctx: Context<'_>) -> Result {
     let guild_id = ctx.guild_id().unwrap();
     let db = db.in_guild(guild_id);
 
+    if !db.has_server_settings() {
+        ctx.reply("This server has not been properly setup. Please contact the server owner.").await?;
+        return Ok(())
+    }
+
     if db.is_user_authed_in_server(user_id.get()).await? {
         ctx.reply(db.get_message("auth_exists_in_server")?).await?;
         if let Some(authenticated_role) = db.authenticated_role_id() {
