@@ -16,6 +16,11 @@ pub struct LocaleInfo {
 
 const LOCALES: &'static [LocaleInfo] = &[
     LocaleInfo {
+        name: "az",
+        lang: langid!("az"),
+        file: include_str!("../../resources/az.ftl"),
+    },
+    LocaleInfo {
         name: "be",
         lang: langid!("be"),
         file: include_str!("../../resources/be.ftl"),
