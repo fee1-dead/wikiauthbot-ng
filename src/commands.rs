@@ -52,6 +52,11 @@ fn localize_command(mut c: Command) -> Command {
         }
     }
 
+    if c.name == "whois_menu" {
+        // that doesn't need localization for parameters as a context menu only command.
+        return c;
+    }
+
     for param in &mut c.parameters {
         let param_name = &param.name;
         for &(lang, discord_lang) in &langs {
