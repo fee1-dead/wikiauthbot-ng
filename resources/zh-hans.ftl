@@ -77,3 +77,17 @@ adding_managed_role = Adding bot-managed role for meeting criteria
 removing_managed_role = Removing bot-managed role as user no longer meets criteria
 
 server_auth_success = 成功！验证信息已发送给机器人。
+
+cmd_whois = whois
+cmd_whois_desc = 获取成员的验证信息
+cmd_whois_user = user
+cmd_whois_user_desc = 需查询的用户，为空时查询自己
+cmd_whois_menu = 获取验证信息
+cmd_auth = auth
+cmd_auth_desc = 验证你的维基媒体账户
+cmd_revwhois = revwhois
+cmd_revwhois_desc = 列出与特定维基媒体账户关联的 Discord 帐号
+cmd_revwhois_user = user
+cmd_revwhois_user_desc = 维基媒体账户名称
+cmd_deauth = deauth
+cmd_deauth_desc = 删除你的验证信息

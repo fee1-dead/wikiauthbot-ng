@@ -82,7 +82,7 @@ const LOCALES: &'static [LocaleInfo] = &[
     },
 ];
 
-fn get_locales_map() -> &'static HashMap<&'static str, FluentBundle<FluentResource>> {
+pub fn get_locales_map() -> &'static HashMap<&'static str, FluentBundle<FluentResource>> {
     static LOCALES_MAP: OnceLock<HashMap<&'static str, FluentBundle<FluentResource>>> =
         OnceLock::new();
     LOCALES_MAP.get_or_init(|| {
@@ -128,7 +128,6 @@ fn get_message_inner(
     Ok(msg)
 }
 
-// TODO this really needs to be reworked to look more like Rust's diagnostic translation
 #[macro_export]
 macro_rules! msg {
     ($lang:expr, $id:literal) => {

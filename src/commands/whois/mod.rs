@@ -63,7 +63,6 @@ pub async fn whois_menu(ctx: Context<'_>, user: User) -> Result {
 /// Check account details for an authenticated member
 pub async fn whois(
     ctx: Context<'_>,
-    // TODO i18n description of commands
     #[description = "User to check, leave blank for yourself"] user: Option<UserId>,
 ) -> Result {
     whois_impl(ctx, user.unwrap_or_else(|| ctx.author().id)).await

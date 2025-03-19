@@ -77,3 +77,17 @@ adding_managed_role = Adding bot-managed role for meeting criteria
 removing_managed_role = Removing bot-managed role as user no longer meets criteria
 
 server_auth_success = Success! Authorization information sent to the bot :)
+
+cmd_whois = whois
+cmd_whois_desc = Check account details for an authenticated member
+cmd_whois_user = user
+cmd_whois_user_desc = User to check, leave blank for yourself
+cmd_whois_menu = Get whois
+cmd_auth = auth
+cmd_auth_desc = Authenticate to your Wikimedia account
+cmd_revwhois = revwhois
+cmd_revwhois_desc = List Discord accounts associated to a Wikimedia account
+cmd_revwhois_user = user
+cmd_revwhois_user_desc = Name of the Wikimedia user
+cmd_deauth = deauth
+cmd_deauth_desc = Deauthenticate or remove your data from the bot.

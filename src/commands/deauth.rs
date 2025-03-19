@@ -32,8 +32,7 @@ pub async fn handle_interactions(
                     let guild = GuildId::new(guild);
                     let db = db.in_guild(guild);
 
-                    // N.B. the user might have quit the server. silently remove information is fine?
-                    // TODO figure out more on the leaving server piece.
+                    // N.B. the user might have quit the server. so we just silently remove information.
                     if let Err(_) = ctx.http.get_member(guild, discord_user_id).await {
                         continue;
                     }
@@ -53,8 +52,7 @@ pub async fn handle_interactions(
                             mention = discord_user_id.mention().to_string()
                         )?;
                         // it is weird when we lack permissions to send to deauth log.
-                        // TODO
-                        let _ = ChannelId::from(chan)
+                        ChannelId::from(chan)
                             .send_message(&ctx, CreateMessage::new().content(msg))
                             .await;
                     }
@@ -87,8 +85,7 @@ pub async fn handle_interactions(
                         mention = discord_user_id.mention().to_string()
                     )?;
                     // it is weird when we lack permissions to send to deauth log.
-                    // TODO
-                    let _ = ChannelId::from(chan)
+                    ChannelId::from(chan)
                         .send_message(&ctx, CreateMessage::new().content(msg))
                         .await;
                 }

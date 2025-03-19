@@ -309,7 +309,6 @@ pub async fn setup_server(
         }
 
         if channel.is_none() {
-            // TODO why do we hack like this to workaround not being able to hold a cacheref across an await?
             channels = guild.channels(ctx.http()).await?;
             channel = channels.get(&ChannelId::new(welcome_channel_id)).cloned()
         }

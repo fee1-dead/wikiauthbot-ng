@@ -5,7 +5,7 @@ use wikiauthbot_db::msg;
 use crate::{Context, Result};
 
 #[poise::command(slash_command, ephemeral, guild_only = true)]
-/// Check account details for a Wikimedia account
+/// List Discord accounts associated to a Wikimedia account
 pub async fn revwhois(
     ctx: Context<'_>,
     #[description = "Name of the Wikimedia user"] user: String,
