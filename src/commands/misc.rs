@@ -1,5 +1,7 @@
 use serenity::all::{GuildId, UserId};
 
+use crate::commands::localize_command;
+use crate::commands::whois::whois_menu;
 use crate::{Context, Result};
 
 #[poise::command(prefix_command)]
@@ -9,15 +11,25 @@ pub async fn register(ctx: Context<'_>, guild: Option<GuildId>) -> Result {
         // silent fail
         return Ok(());
     }
+    let commands =
+        poise::builtins::create_application_commands(&ctx.framework().options().commands);
+
+    // poise doesn't currently have a way to localize context menu commands. let's hack around that.
+    let commands = commands
+        .into_iter()
+        .map(|mut c| {
+            if serde_json::to_value(&c).unwrap()["name"] == "Get whois" {
+                for (lang, val) in localize_command(whois_menu()).name_localizations {
+                    c = c.name_localized(lang, val);
+                }
+            }
+            c
+        })
+        .collect::<Vec<_>>();
     if let Some(guild) = guild {
-        guild
-            .set_commands(
-                ctx,
-                poise::samples::create_application_commands(&ctx.framework().options().commands),
-            )
-            .await?;
+        guild.set_commands(ctx, commands).await?;
     } else {
-        poise::builtins::register_application_commands_buttons(ctx).await?;
+        serenity::all::Command::set_global_commands(ctx.http(), commands).await?;
     }
     Ok(())
 }
