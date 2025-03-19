@@ -203,7 +203,7 @@ pub async fn server_settings_sanity_check(
         allow_partially_blocked_users,
     }: &ServerSettingsData,
 ) -> Result<bool> {
-    if !wikiauthbot_common::i18n::lang_is_supported(&server_language) {
+    if !wikiauthbot_common::i18n::lang_is_supported(server_language) {
         ctx.reply("F: The language you have specified is not supported.")
             .await?;
         return Ok(false);
@@ -231,7 +231,10 @@ pub async fn server_settings_sanity_check(
             .await?;
         return Ok(false);
     }
-    let bot_pos = ctx.cache().guild(guild.id).unwrap()
+    let bot_pos = ctx
+        .cache()
+        .guild(guild.id)
+        .unwrap()
         .member_highest_role(&member)
         .unwrap()
         .position;
@@ -284,6 +287,7 @@ pub async fn server_settings_sanity_check(
 }
 
 #[poise::command(prefix_command, dm_only, hide_in_help)]
+#[allow(clippy::too_many_arguments)]
 pub async fn setup_server(
     ctx: Context<'_>,
     guild_id: GuildId,
@@ -312,9 +316,11 @@ pub async fn setup_server(
             channels = guild.channels(ctx.http()).await?;
             channel = channels.get(&ChannelId::new(welcome_channel_id)).cloned()
         }
-        
+
         let channel = channel.ok_or_eyre("no channel found for welcome channel")?;
-        guild.user_permissions_in(&channel, &ctx.http().get_member(guild_id, user).await?).administrator()
+        guild
+            .user_permissions_in(&channel, &ctx.http().get_member(guild_id, user).await?)
+            .administrator()
     };
 
     if !is_bot_owner && !is_server_admin {

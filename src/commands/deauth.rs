@@ -33,7 +33,7 @@ pub async fn handle_interactions(
                     let db = db.in_guild(guild);
 
                     // N.B. the user might have quit the server. so we just silently remove information.
-                    if let Err(_) = ctx.http.get_member(guild, discord_user_id).await {
+                    if ctx.http.get_member(guild, discord_user_id).await.is_err() {
                         continue;
                     }
 
@@ -51,10 +51,9 @@ pub async fn handle_interactions(
                             "deauth_log",
                             mention = discord_user_id.mention().to_string()
                         )?;
-                        // it is weird when we lack permissions to send to deauth log.
                         ChannelId::from(chan)
                             .send_message(&ctx, CreateMessage::new().content(msg))
-                            .await;
+                            .await?;
                     }
                 }
                 let (_, num_servers_authed) = db.full_deauth(discord_user_id.get()).await?;
@@ -84,10 +83,9 @@ pub async fn handle_interactions(
                         "deauth_log",
                         mention = discord_user_id.mention().to_string()
                     )?;
-                    // it is weird when we lack permissions to send to deauth log.
                     ChannelId::from(chan)
                         .send_message(&ctx, CreateMessage::new().content(msg))
-                        .await;
+                        .await?;
                 }
                 let message = if command == "partial" {
                     db.partial_deauth(discord_user_id.get()).await?;

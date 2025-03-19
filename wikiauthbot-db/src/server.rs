@@ -147,7 +147,7 @@ impl DatabaseConnection {
                     ("discord_user_id", discord_user_id.get().try_into()?),
                     ("guild_id", guild_id.get().try_into()?),
                     ("central_user_id", central_user_id.into()),
-                    ("username", String::from(username).into()),
+                    ("username", username.into()),
                     ("brand_new", RedisValue::Boolean(brand_new)),
                 ],
             )

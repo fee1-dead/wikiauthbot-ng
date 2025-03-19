@@ -57,7 +57,7 @@ pub async fn revwhois(
             )?)
             .await?
         }
-        [ids @ ..] => {
+        ids => {
             let mentions = ids
                 .iter()
                 .copied()

@@ -5,7 +5,7 @@ use reqwest::Client;
 
 use crate::Config;
 
-static CLIENT: LazyLock<Client> = LazyLock::new(|| Client::new());
+static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 
 #[derive(serde::Serialize)]
 struct Message {

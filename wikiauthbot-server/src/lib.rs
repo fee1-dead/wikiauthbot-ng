@@ -117,7 +117,6 @@ async fn authorize(
     (success_msg, StatusCode::OK)
 }
 
-#[must_use]
 pub async fn start(db: DatabaseConnection) -> color_eyre::Result<Server> {
     let state = Arc::new(State {
         db,

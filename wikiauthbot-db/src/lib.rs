@@ -636,6 +636,6 @@ impl<'a> DatabaseConnectionInGuild<'a> {
 impl Deref for DatabaseConnectionInGuild<'_> {
     type Target = DatabaseConnection;
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        self.inner
     }
 }

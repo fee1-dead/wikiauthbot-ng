@@ -14,7 +14,7 @@ pub struct LocaleInfo {
     file: &'static str,
 }
 
-const LOCALES: &'static [LocaleInfo] = &[
+const LOCALES: &[LocaleInfo] = &[
     LocaleInfo {
         name: "az",
         lang: langid!("az"),
@@ -126,7 +126,7 @@ fn get_message_inner(
     match &*errors {
         [] => {}
         [one] => return Err(one.clone().into()),
-        [multiple @ ..] => {
+        multiple => {
             bail!("multiple fluent errors: {multiple:?}")
         }
     }

@@ -134,8 +134,9 @@ pub async fn auth(ctx: Context<'_>) -> Result {
     let db = db.in_guild(guild_id);
 
     if !db.has_server_settings() {
-        ctx.reply("This server has not been properly setup. Please contact the server owner.").await?;
-        return Ok(())
+        ctx.reply("This server has not been properly setup. Please contact the server owner.")
+            .await?;
+        return Ok(());
     }
 
     if db.is_user_authed_in_server(user_id.get()).await? {
@@ -245,7 +246,7 @@ pub async fn handle_successful_auth_inner(
         let authlog = authlog.unwrap();
         CreateMessage::new()
             .content(authlog)
-            .execute(&http, (auth_log_channel_id.into(), Some(guild)))
+            .execute(http, (auth_log_channel_id.into(), Some(guild)))
             .await?;
     }
 
@@ -304,10 +305,9 @@ pub async fn handle_successful_auth(
                 .content(msg)
                 .embeds(vec![])
                 .components(vec![]);
-            if let Err(e) = newmsg.execute(&http, &cont_token).await {
+            if let Err(e) = newmsg.execute(http, &cont_token).await {
                 webhook_println!("couldn't edit! {e}");
                 tracing::error!(?e, "couldn't edit");
-                return;
             }
         }
         Err(e) => {
@@ -321,10 +321,9 @@ pub async fn handle_successful_auth(
                 .content(msg)
                 .embeds(vec![])
                 .components(vec![]);
-            if let Err(e) = newmsg.execute(&http, &cont_token).await {
+            if let Err(e) = newmsg.execute(http, &cont_token).await {
                 webhook_println!("couldn't edit for error! {e}");
                 tracing::error!(?e, "couldn't edit for error!");
-                return;
             }
         }
     }
