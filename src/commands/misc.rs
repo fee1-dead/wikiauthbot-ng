@@ -31,6 +31,8 @@ pub async fn register(ctx: Context<'_>, guild: Option<GuildId>) -> Result {
     } else {
         serenity::all::Command::set_global_commands(ctx.http(), commands).await?;
     }
+
+    ctx.reply("done").await?;
     Ok(())
 }
 
