@@ -3,7 +3,6 @@ members = [
     "wikiauthbot-server",
     "wikiauthbot-db",
     "wikiauthbot-common",
-    "datatool",
 ]
 
 [workspace.package]
