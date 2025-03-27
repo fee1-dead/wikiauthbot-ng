@@ -43,7 +43,7 @@ whois_global_groups = Grupy globalne: {$groupslist}
 
 whois_blocked = **ZABLOKOWANO**
 whois_locked = **ZABLOKOWANO GLOBALNIE**
-whois_pblocked = partially blocked
+whois_pblocked = zablokowano częściowo
 whois_edits = Edycji: {$edits}
 whois_groups = Grupy: {$groupslist}
 whois_overflow = Tylko 10 najważniejszych jest wyświetlane. Kliknij nazwę użytkownika u góry, aby zobaczyć wszystkie.
@@ -55,39 +55,39 @@ whois = Discord: {$mention}
     Domowa wiki: {$home}
     {$global_groups}Wszystkich edycji: {$edits}
 
-cancel = cancel
+cancel = anuluj
 
-deauth = Are you sure you want to remove your authentication from this server?
-deauth_canceled = Deauthentication canceled.
-deauth_expired = Deauthentication expired.
-deauth_not_found = You are currently not authenticated to this server. Run this command in a server where you are authenticated.
-deauth_done = Successfully removed authentication data.
-deauth_more = You are currently authenticated to {$num_servers_authed} servers. Would you like to remove data from only this server, or from all {$num_servers_authed} servers?
-deauth_more_single = Delete from only this server
-deauth_more_single_done = Successfully removed authentication data from this server.
-deauth_more_multi = Delete from all servers I am in
-deauth_more_multi_done = Successfully removed authentication data from {$num_servers_authed} servers.
-deauth_log = {$mention} has deauthenticated from this server.
-deauth_audit_log = Deauthenticated
+deauth = Czy na pewno chcesz skasować powiązanie z kontem Wikimedia na tym serwerze?
+deauth_canceled = Przerwano rozłączanie kont.
+deauth_expired = Rozłączanie kont trwało za długo.
+deauth_not_found = Nie jesteś uwierzytelniony(-a) na tym serwerze. Wywołaj tę komendę na serwerze, gdzie masz już uwierzytelnione konto.
+deauth_done = Pomyślnie rozłączono konta.
+deauth_more = Jesteś w tej chwili uwierzytelniony(-a) na {$num_servers_authed} serwerach. Czy chcesz rozłączyć konto jedynie na niniejszym czy na wszystkich {$num_servers_authed} serwerach?
+deauth_more_single = Rozłącz tylko na tym
+deauth_more_single_done = Pomyślnie rozłączono konta na tym serwerze.
+deauth_more_multi = Rozłącz na wszystkich serwerach, do których należę
+deauth_more_multi_done = Pomyślnie rozłączono konta na {$num_servers_authed} serwerach.
+deauth_log = {$mention} skasował powiązanie z kontem Wikimedia na tym serwerze.
+deauth_audit_log = Rozłączono konta
 
-auth_failed_blocked = Authentication failed: You have been blocked from one or more Wikimedia projects, which prevents authentication to this server. Contact the server admins for help.
-auth_failed_error = Authentication failed: An internal error has occured. Please contact beef.w on Discord for reporting bugs.
-removed_blocked_user_roles = Removed role from blocked user
-adding_managed_role = Adding bot-managed role for meeting criteria
-removing_managed_role = Removing bot-managed role as user no longer meets criteria
+auth_failed_blocked = Uwierzytelnianie nie powiodło się. Jesteś zablokowany(-a) na jednym z projektów Wikimedia. Z tego powodu nie możesz uwierzytelnić się na tym serwerze. Aby uzyskać pomoc, skontaktuj się z administratorami tego serwera.
+auth_failed_error = Uwierzytelnianie nie powiodło się. Wystąpił nieznany błąd. Skontaktuj się z beef.w na Discordzie, aby zgłosić błąd.
+removed_blocked_user_roles = Usunięto rolę zablokowanemu użytkownikowi
+adding_managed_role = Dodano rolę obsługiwaną przez bota, bo użytkownik spełnia jej kryteria
+removing_managed_role = Usunięto rolę obsługiwaną przez bota, bo użytkownik przestał spełniać jej kryteria
 
 server_auth_success = Sukces! Informacje uwierzytelniające zostały przekazane do bota :)
 
 cmd_whois = whois
-cmd_whois_desc = Check account details for an authenticated member
-cmd_whois_user = user
-cmd_whois_user_desc = User to check, leave blank for yourself
-cmd_whois_menu = Get whois
+cmd_whois_desc = Zobacz szczegóły powiązanego konta Wikimedia
+cmd_whois_user = użytkownik
+cmd_whois_user_desc = Użytkownik do sprawdzenia, pozostaw puste, aby sprawdzić siebie
+cmd_whois_menu = Uzyskaj informacje
 cmd_auth = auth
-cmd_auth_desc = Authenticate to your Wikimedia account
+cmd_auth_desc = Połącz konto z kontem Wikimedia
 cmd_revwhois = revwhois
-cmd_revwhois_desc = List Discord accounts associated to a Wikimedia account
-cmd_revwhois_user = user
-cmd_revwhois_user_desc = Name of the Wikimedia user
+cmd_revwhois_desc = Wylistuj użytkowników na Discordzie, powiązane z danym kontem Wikimedia
+cmd_revwhois_user = użytkownik
+cmd_revwhois_user_desc = Nazwa konta Wikimedia
 cmd_deauth = deauth
-cmd_deauth_desc = Deauthenticate or remove your data from the bot.
+cmd_deauth_desc = Usuń powiązanie ze swoim kontem Wikimedia.
