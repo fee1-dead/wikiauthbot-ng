@@ -72,24 +72,24 @@ deauth_more_multi_done = Suppression réussie des données d'authentification de
 deauth_log = {$mention} s'est désauthentifié·ée de ce serveur.
 deauth_audit_log = Désauthentifié·ée
 
-auth_failed_blocked = Authentication failed: You have been blocked from one or more Wikimedia projects, which prevents authentication to this server. Contact the server admins for help.
-auth_failed_error = Authentication failed: An internal error has occured. Please contact beef.w on Discord for reporting bugs.
-removed_blocked_user_roles = Removed role from blocked user
-adding_managed_role = Adding bot-managed role for meeting criteria
-removing_managed_role = Removing bot-managed role as user no longer meets criteria
+auth_failed_blocked = Échec de l'authentification : vous avez été bloqué sur un ou plusieurs projets Wikimedia, ce qui empêche l'authentification sur ce serveur. Contactez les admin du serveur pour obtenir de l'aide.
+auth_failed_error = Échec de l'authentification : une erreur interne s'est produite. Veuillez contacter beef.w sur Discord pour signaler tout bug.
+removed_blocked_user_roles = Rôle supprimé d'un·e utilisateur·trice bloqué·ée
+adding_managed_role = Ajout d'un rôle géré par un robot pour répondre aux critères
+removing_managed_role = Suppression du rôle géré par le robot car l'utilisateur·trice ne répond plus aux critères
 
 server_auth_success = Succès ! Informations d'autorisation envoyées au bot :)
 
 cmd_whois = whois
-cmd_whois_desc = Check account details for an authenticated member
+cmd_whois_desc = Vérifier les détails du compte d'un membre authentifié
 cmd_whois_user = user
-cmd_whois_user_desc = User to check, leave blank for yourself
+cmd_whois_user_desc = Utilisateur·trice à vérifier, laissez vide pour vous-même
 cmd_whois_menu = Get whois
 cmd_auth = auth
-cmd_auth_desc = Authenticate to your Wikimedia account
+cmd_auth_desc = Authentifiez-vous avec votre compte Wikimedia
 cmd_revwhois = revwhois
-cmd_revwhois_desc = List Discord accounts associated to a Wikimedia account
+cmd_revwhois_desc = Lister les comptes Discord associés à un compte Wikimedia
 cmd_revwhois_user = user
-cmd_revwhois_user_desc = Name of the Wikimedia user
+cmd_revwhois_user_desc = Nom de l'utilisateur·trice Wikimedia
 cmd_deauth = deauth
-cmd_deauth_desc = Deauthenticate or remove your data from the bot.
+cmd_deauth_desc = Désauthentifier ou supprimer vos données du bot
