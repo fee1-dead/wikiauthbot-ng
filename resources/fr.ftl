@@ -39,7 +39,7 @@ welcome_has_auth = Bienvenue {$mention} ! Vous êtes déjà authentifié·ée en
 welcome_has_auth_failed = Bienvenue {$mention} ! Vous êtes déjà authentifié·ée (erreur lors de la tentative de récupération des informations !), vous n'avez donc pas besoin de vous authentifier à nouveau.
 
 # note: The command ID is changed to the new one, according to https://discord.com/channels/221049808784326656/1221136365639434382/1241074873355468923
-welcome = Bienvenue {$mention} ! Si vous souhaitez authentifier (valider) votre compte Wikimedia, veuillez taper </auth:1241068923730919464>
+welcome = Bienvenue {$mention} ! Si vous souhaitez authentifier (lier publiquement) votre compte Wikimedia, veuillez saisir ou cliquer sur </auth:1241068923730919464>
 
 whois_global_groups = Groupes globaux : {$groupslist}
 
