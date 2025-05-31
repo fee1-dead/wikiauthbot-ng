@@ -36,4 +36,4 @@ conflicting with the new bot's command. Furthermore, introducing the new bot may
 lost (e.g. due to renames). To get a list of people that need to be reauthenticated, DM the bot `wab!unauthed_list guild_id`.
 
 After notifying people who need to reauthenticate, use `/cleanup_roles` so that the bot removes the
-authentiacted role from them.
+authenticated role from them.
