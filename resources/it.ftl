@@ -31,7 +31,7 @@ revwhois_one = [{$name}](<{$user_link}>) è autenticato come {$mention}
 # note: no space between colon and variable.
 revwhois_multiple = [{$name}](<{$user_link}>) è stato autenticato ai seguenti account:{$mentions}
 
-user_link = https://it.wikipedia.org/w/index.php?titolo=Speciale%3ACentralAuth/{$normalized_name}
+user_link = https://it.wikipedia.org/w/index.php?title=Speciale%3AUtenzaGlobale/{$normalized_name}
 
 welcome_has_auth = Benvenuto {$mention}! La tua utenza è stata già autenticata come [{$name}](<{$user_link}>), quindi non c'è bisogno che ti autentichi di nuovo.
 
