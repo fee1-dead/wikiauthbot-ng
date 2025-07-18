@@ -71,17 +71,21 @@ static API_KEYS: LazyLock<HashMap<[u8; 32], NonZeroU64>> = LazyLock::new(|| {
     let mut map = HashMap::new();
     map.insert(
         [
-            37, 185, 6, 114, 198, 12, 186, 150, 80, 141, 25, 56, 53, 8, 38, 130, 63, 240, 244, 116,
-            25, 29, 241, 52, 182, 27, 251, 180, 99, 99, 5, 229,
+            10, 207, 238, 51, 89, 185, 38, 139, 26, 36, 99, 201, 68, 32, 228, 78, 208, 105, 48,
+            209, 87, 233, 133, 157, 235, 72, 63, 27, 59, 208, 63, 122,
         ],
-        NonZeroU64::new(221049808784326656).unwrap(),
+        NonZeroU64::new(1044474820089368666).unwrap(),
     );
     map
 });
 
 #[get("/whois/{discord_id}")]
-async fn whois(auth: web::Header<Authorization>, discord_id: web::Path<u64>, app_state: web::Data<Arc<State>>) -> impl Responder {
-    use sha3::{Sha3_256, Digest};
+async fn whois(
+    auth: web::Header<Authorization>,
+    discord_id: web::Path<u64>,
+    app_state: web::Data<Arc<State>>,
+) -> impl Responder {
+    use sha3::{Digest, Sha3_256};
     let mut hasher = Sha3_256::new();
     hasher.update(&auth.0.value);
     let hash: [u8; 32] = hasher.finalize().into();
@@ -93,13 +97,9 @@ async fn whois(auth: web::Header<Authorization>, discord_id: web::Path<u64>, app
         return HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR).finish();
     }
     match guild.whois(discord_id.into_inner()).await {
-        Ok(Some(x)) => {
-            HttpResponseBuilder::new(StatusCode::OK).body(format!("{}", x.wikimedia_id))
-        }
-        Ok(None) => {
-            HttpResponseBuilder::new(StatusCode::OK).body("not found")
-        }
-        Err(_) => HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR).finish()
+        Ok(Some(x)) => HttpResponseBuilder::new(StatusCode::OK).body(format!("{}", x.wikimedia_id)),
+        Ok(None) => HttpResponseBuilder::new(StatusCode::OK).body("not found"),
+        Err(_) => HttpResponseBuilder::new(StatusCode::INTERNAL_SERVER_ERROR).finish(),
     }
 }
 
