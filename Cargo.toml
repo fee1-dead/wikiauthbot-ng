@@ -2,7 +2,7 @@
 members = [
     "wikiauthbot-server",
     "wikiauthbot-db",
-    "wikiauthbot-common",
+    "wikiauthbot-common", "keygen",
 ]
 
 [workspace.package]
@@ -24,6 +24,8 @@ tracing = "0.1.40"
 tokio = { version = "1.35.0", features = ["rt-multi-thread"] }
 # pinned due to issue https://github.com/launchbadge/sqlx/issues/3241
 sqlx = { version = "=0.7.3", features = ["runtime-tokio", "mysql"] }
+sha3 = "0.10.8"
+rand = "0.9.1"
 
 [package]
 name = "wikiauthbot-ng"

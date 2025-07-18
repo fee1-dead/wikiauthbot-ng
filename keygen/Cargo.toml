@@ -1,0 +1,11 @@
+[package]
+name = "keygen"
+version.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+
+[dependencies]
+color-eyre.workspace = true
+rand.workspace = true
+sha3.workspace = true
+

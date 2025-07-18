@@ -9,7 +9,7 @@ edition.workspace = true
 [dependencies]
 color-eyre.workspace = true
 tokio.workspace = true
-rand = "0.8.5"
+rand.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 tracing.workspace = true
