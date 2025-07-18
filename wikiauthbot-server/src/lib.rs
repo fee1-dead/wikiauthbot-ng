@@ -205,6 +205,7 @@ pub async fn start(db: DatabaseConnection) -> color_eyre::Result<Server> {
             .service(authorize)
             .service(index)
             .service(privacy_statement)
+            .service(whois)
     })
     .bind(("0.0.0.0", 8000))?
     .run();
