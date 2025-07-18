@@ -10,7 +10,7 @@ curl "https://wikiauthbot-ng.toolforge.org/whois/{discord_ID}" --verbose -H "aut
 ```
 
 API keys are bound to a specific Discord server. You must be or obtain the authorization of a server's owner to create
-an API key. Contact dbeef, send the invite link and the API key will be created for the server.
+an API key. Contact beef.w, send the invite link and the API key will be created for the server.
 
 If the API call is successful it will return 200 OK. The content of the response determines the WHOIS result. If a user is found,
 the content will be an unsigned 32bit integer representing the user's CentralAuth (globaluser) ID. If not, the content will be
