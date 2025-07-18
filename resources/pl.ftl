@@ -1,8 +1,15 @@
+-privacy_info = See WikiAuthBot2's [privacy statement](<https://wikiauthbot-ng.toolforge.org/ps>) to learn more about how we use your information.
+
 auth = Użyj następującego linku, aby zweryfikować swoje konto Wikimedia: [Przejdź do weryfikacji]({$url})
+
+    {-privacy_info}
 
 auth_exists_in_server = Już jesteś uwierzytelniony(-a) na tym serwerze. Nie musisz powtarzać tej czynności.
 
 auth_to_server = Uwierzytelniłeś(-aś) się już jako [{$name}](<{$url}>). Czy chcesz korzystać z tego konta również na niniejszym serwerze?
+
+    {-privacy_info}
+
 yes = Tak
 no = Nie
 

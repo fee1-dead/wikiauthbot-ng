@@ -1,8 +1,15 @@
+-privacy_info = See WikiAuthBot2's [privacy statement](<https://wikiauthbot-ng.toolforge.org/ps>) to learn more about how we use your information.
+
 auth = Щоб автентифікувати свій обліковий запис Вікімедіа, перейдіть, будь ласка, за цим посиланням: [Authenticate]({$url})
+
+    {-privacy_info}
 
 auth_exists_in_server = Ви вже автентифіковані на цьому сервері. Немає потреби автентифікуватися ще раз.
 
 auth_to_server = Вас уже ідентифіковано як [{$name}](<{$url}>). Бажаєте автентифікуватися так на сервері?
+
+    {-privacy_info}
+
 yes = Так
 no = Ні
 

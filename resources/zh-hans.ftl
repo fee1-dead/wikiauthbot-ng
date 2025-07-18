@@ -1,8 +1,15 @@
+-privacy_info = See WikiAuthBot2's [privacy statement](<https://wikiauthbot-ng.toolforge.org/ps>) to learn more about how we use your information.
+
 auth = 请使用以下的链接来验证您的维基媒体账户: [验证]({$url})
+
+    {-privacy_info}
 
 auth_exists_in_server = 您在本服务器已经验证过了，无需重复验证。
 
 auth_to_server = 您被识别为[{$name}](<{$url}>)。您希望绑定这一账户至本服务器吗？
+
+    {-privacy_info}
+
 yes = 是
 no= 否
 

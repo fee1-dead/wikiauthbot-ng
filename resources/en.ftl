@@ -1,8 +1,15 @@
+-privacy_info = See WikiAuthBot2's [privacy statement](<https://wikiauthbot-ng.toolforge.org/ps>) to learn more about how we use your information.
+
 auth = Please use the following link to authenticate to your Wikimedia account: [Authenticate]({$url})
+
+    {-privacy_info}
 
 auth_exists_in_server = You are already authenticated to this server. No need to authenticate again.
 
 auth_to_server = You are already identified as [{$name}](<{$url}>). Would you like to authenticate this to the server?
+
+    {-privacy_info}
+
 yes = Yes
 no = No
 

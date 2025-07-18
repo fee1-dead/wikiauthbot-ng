@@ -1,8 +1,14 @@
 auth = Por favor usa el siguiente enlace para autenticarte en tu cuenta Wikimedia: [Autenticación]({$url})
 
+    {-privacy_info}
+
+
 auth_exists_in_server = Actualmente estás autenticado en este servidor. No es necesario autenticarse de nuevo.
 
 auth_to_server = Estás identificado como [{$name}](<{$url}>). ¿Quieres autenticarte de nuevo en este servidor?
+
+    {-privacy_info}
+
 yes = Sí
 no = No
 

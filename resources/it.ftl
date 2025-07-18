@@ -1,8 +1,15 @@
+-privacy_info = See WikiAuthBot2's [privacy statement](<https://wikiauthbot-ng.toolforge.org/ps>) to learn more about how we use your information.
+
 auth = Usa il seguente link per autenticare il tuo account Wikimedia: [Authenticate]({$url})
+
+    {-privacy_info}
 
 auth_exists_in_server = La tua utenza è già autenticata in questo server. Non c'è bisogno di autenticarsi di nuovo.
 
 auth_to_server = La tua utenza è già autenticata come [{$name}](<{$url}>). Desideri autenticarla nel server?
+
+    {-privacy_info}
+
 yes = Sì
 no = No
 

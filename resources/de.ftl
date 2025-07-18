@@ -1,8 +1,15 @@
+-privacy_info = See WikiAuthBot2's [privacy statement](<https://wikiauthbot-ng.toolforge.org/ps>) to learn more about how we use your information.
+
 auth = Bitte nutze den folgenden Link, um dein Wikimedia-Benutzerkonto verifizieren: [Authenticate]({$url})
+
+    {-privacy_info}
 
 auth_exists_in_server = Du bist auf diesem Server bereits bestätigt. Du musst dich daher nicht erneut bestätigen.
 
 auth_to_server = Du bist bereits als bestätigt [{$name}](<{$url}>). Möchtest du dich auf diesem Server ebenfalls bestätigen?
+
+    {-privacy_info}
+
 yes = Ja
 no = Nein
 

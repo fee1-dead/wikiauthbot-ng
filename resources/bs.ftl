@@ -1,8 +1,15 @@
+-privacy_info = See WikiAuthBot2's [privacy statement](<https://wikiauthbot-ng.toolforge.org/ps>) to learn more about how we use your information.
+
 auth = Koristite sljedeći link za potvrdu svog računa na Wikimediji: [Authenticate]({$url})
+
+    {-privacy_info}
 
 auth_exists_in_server = Već ste se potvrdili na ovom serveru. Nije potrebna ponovna potvrda.
 
 auth_to_server = Već ste potvrdili da je Vaš račun [{$name}](<{$url}>). Želite li to potvrditi na ovom serveru?
+
+    {-privacy_info}
+
 yes = Da
 no = Ne
 

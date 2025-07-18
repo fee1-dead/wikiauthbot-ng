@@ -1,8 +1,15 @@
+-privacy_info = See WikiAuthBot2's [privacy statement](<https://wikiauthbot-ng.toolforge.org/ps>) to learn more about how we use your information.
+
 auth = Zəhmət olmasa, Vikimedia hesabınızı təsdiqləmək üçün keçidə daxil olun: [Təsdiqləyin]({$url})
+
+    {-privacy_info}
 
 auth_exists_in_server = Siz bu serverdə, onsuz da, təsdiqlənmisiniz. Yenidən təsdiqləməyə ehtiyac yoxdur.
 
 auth_to_server = Siz artıq [{$name}](<{$url}>) kimi qeyd edilmisiniz. Bu serverdə də eyni kimliklə təsdiqlənmək istəyirsiniz?
+
+    {-privacy_info}
+
 yes = Bəli
 no = Xeyr
 

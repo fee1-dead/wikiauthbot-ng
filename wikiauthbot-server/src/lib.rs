@@ -2,8 +2,9 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use actix_web::dev::Server;
+use actix_web::http::header::ContentType;
 use actix_web::http::StatusCode;
-use actix_web::{App, HttpServer, Responder, get, web};
+use actix_web::{get, web, App, HttpResponseBuilder, HttpServer, Responder};
 use reqwest::{Client, ClientBuilder};
 use wikiauthbot_common::Config;
 use wikiauthbot_db::DatabaseConnection;
@@ -37,8 +38,13 @@ struct State {
 }
 
 #[get("/")]
-async fn index(_app_state: web::Data<Arc<State>>) -> String {
-    "nothing to see here".into()
+async fn index() -> impl Responder {
+    HttpResponseBuilder::new(StatusCode::OK).content_type(ContentType::html()).body(r#"See <a href="/ps">Privacy Statement</a>"#)
+}
+
+#[get("/ps")]
+async fn privacy_statement() -> impl Responder {
+    HttpResponseBuilder::new(StatusCode::OK).content_type(ContentType::html()).body(include_str!("privacy_statement.html"))
 }
 
 #[get("/authorize")]
@@ -128,6 +134,7 @@ pub async fn start(db: DatabaseConnection) -> color_eyre::Result<Server> {
             .app_data(web::Data::new(state.clone()))
             .service(authorize)
             .service(index)
+            .service(privacy_statement)
     })
     .bind(("0.0.0.0", 8000))?
     .run();

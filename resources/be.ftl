@@ -1,8 +1,15 @@
+-privacy_info = See WikiAuthBot2's [privacy statement](<https://wikiauthbot-ng.toolforge.org/ps>) to learn more about how we use your information.
+
 auth = Каб праверыць сапраўднасць вашага ўліковага запіса Wikimedia, выкарыстайце наступную спасылку: [Authenticate]({$url})
+
+    {-privacy_info}
 
 auth_exists_in_server = Вы ўжо прайшлі праверку сапраўднасці. Няма патрэбы рабіць яе зноў.
 
 auth_to_server = Вы ўжо ідэнтыфікаваныя як [{$name}](<{$url}>). Ці хочаце вы прайсці праверку сапраўднасці для сервера?
+
+    {-privacy_info}
+
 yes = Так
 no = Не
 

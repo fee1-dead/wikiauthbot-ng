@@ -1,8 +1,15 @@
+-privacy_info = See WikiAuthBot2's [privacy statement](<https://wikiauthbot-ng.toolforge.org/ps>) to learn more about how we use your information.
+
 auth = আপনার উইকিমিডিয়া অ্যাকাউন্ট প্রমাণীকরণের জন্য নিম্নলিখিত লিঙ্কটি ব্যবহার করুন: [প্রমাণীকরণ করুন]({$url})
+
+    {-privacy_info}
 
 auth_exists_in_server = আপনি ইতিমধ্যেই এই সার্ভারে প্রমাণীকৃত আছেন। পুনরায় প্রমাণীকরণের প্রয়োজন নেই।
 
 auth_to_server = আপনি ইতিমধ্যে [{$name}](<{$url}>) হিসাবে সনাক্ত হয়েছেন। আপনি কি এটি সার্ভারে প্রমাণীকরণ করতে চান?
+
+    {-privacy_info}
+
 yes = হ্যাঁ
 no = না
 

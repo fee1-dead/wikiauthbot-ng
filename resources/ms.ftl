@@ -1,8 +1,14 @@
+-privacy_info = See WikiAuthBot2's [privacy statement](<https://wikiauthbot-ng.toolforge.org/ps>) to learn more about how we use your information.
+
 auth = Sila gunakan pautan berikut untuk mengesahkan akaun Wikimedia anda: [Sahkan]({$url})
+
+    {-privacy_info}
 
 auth_exists_in_server = Anda sudah pun disahkan dalam pelayan ini. Tiada keperluan mengesahkan lagi.
 
 auth_to_server = Anda sudah disahkan sebagai [{$name}](<{$url}>). Inginkah anda mengesahkan ini kepada pelayan ini?
+
+    {-privacy_info}
 yes = Ya
 no = Tidak
 

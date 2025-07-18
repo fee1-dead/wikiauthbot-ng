@@ -1,8 +1,15 @@
+-privacy_info = See WikiAuthBot2's [privacy statement](<https://wikiauthbot-ng.toolforge.org/ps>) to learn more about how we use your information.
+
 auth = Vui lòng sử dụng liên kết này để xác thực tài khoản Wikimedia của bạn: [Đăng nhập]({$url})
+
+    {-privacy_info}
 
 auth_exists_in_server = Bạn đã xác thực tài khoản của bạn trong máy chủ này, vì vậy bạn không cần phải liên kết lại nữa.
 
 auth_to_server = Bạn đã đăng nhập trước đó bằng tên [{$name}](<{$url}>). Bạn có muốn liên kết nó vào máy chủ này không?
+
+    {-privacy_info}
+
 yes = Có
 no = Không
 

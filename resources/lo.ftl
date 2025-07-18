@@ -1,8 +1,14 @@
+-privacy_info = See WikiAuthBot2's [privacy statement](<https://wikiauthbot-ng.toolforge.org/ps>) to learn more about how we use your information.
+
 auth = ກະລຸນາໃຊ້ລິ້ງຕໍ່ໄປນີ້ເພື່ອພິສູດຢືນຢັນບັນຊີວິກິມີເດຍຂອງທ່ານ: [ຢຶນຢັນ]({$url})
+
+    {-privacy_info}
 
 auth_exists_in_server = ທ່ານໄດ້ຮັບການຢືນຢັນກັບເຊີບເວີນີ້ແລ້ວ ບໍ່ຈໍາເປັນຕ້ອງຢືນຢັນອີກເທື່ອໜຶ່ງ
 
 auth_to_server = ທ່ານໄດ້ຖືກຢຶນຢັນແລ້ວເປັນ [{$name}](<{$url}>) ທ່ານຕ້ອງການຢືນຢັນອັນນີ້ໃຫ້ກັບເຊີບເວີບໍ່
+
+    {-privacy_info}
 yes = ແມ່ນ
 no = ບໍ່
 
