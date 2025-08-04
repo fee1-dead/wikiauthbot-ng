@@ -66,6 +66,11 @@ const LOCALES: &[LocaleInfo] = &[
         file: include_str!("../../resources/it.ftl"),
     },
     LocaleInfo {
+        name: "ja",
+        lang: langid!("ja"),
+        file: include_str!("../../resources/ja.ftl"),
+    },
+    LocaleInfo {
         name: "lo",
         lang: langid!("lo"),
         file: include_str!("../../resources/lo.ftl"),
