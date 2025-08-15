@@ -299,7 +299,9 @@ pub async fn handle_successful_auth(
             } else {
                 "auth_failed_blocked"
             };
-            let msg = parent_db.get_message(msg).unwrap();
+            // super weird bug (should have avoided this with server settings check way earlier)
+            // but prevent crashing anyways
+            let msg = parent_db.get_message(msg).unwrap_or_else(|_| msg.into());
 
             let newmsg = EditInteractionResponse::new()
                 .content(msg)
