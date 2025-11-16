@@ -1,5 +1,4 @@
--privacy_info = See WikiAuthBot2's [privacy statement](<https://wikiauthbot-ng.toolforge.org/ps>) to learn more about how we use your information.
-
+-privacy_info = Consultez la [déclaration de confidentialité](<https://wikiauthbot-ng.toolforge.org/ps>) (en) de WikiAuthBot2 pour en savoir plus sur la manière dont nous utilisons vos informations.
 auth = Veuillez utiliser le lien suivant pour vous authentifier sur votre compte Wikimedia : [Authentifier]({$url})
 
     {-privacy_info}
