@@ -1,5 +1,6 @@
 use serenity::all::{GatewayIntents, UserId};
 use serenity::client::ClientBuilder;
+use tracing::info;
 use wikiauthbot_common::{Config, webhook_println};
 use wikiauthbot_db::DatabaseConnection;
 
@@ -53,7 +54,7 @@ async fn bot_start() -> Result<()> {
                     config,
                     db,
                 };
-                eprintln!("data setup complete");
+                info!("data setup complete");
                 Ok(data)
             })
         })
