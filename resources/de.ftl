@@ -44,7 +44,7 @@ welcome_has_auth = Willkommen {$mention}! Du bist bereits als [{$name}](<{$user_
 
 welcome_has_auth_failed = Willkommen {$mention}! Du bist bereits als (Fehler beim Laden der Information!) bestätigt, du musst dich also nicht erneut bestätigen.
 
-welcome = Hallo {$mention}, willkommen auf dem inoffiziellen Discord-Server der deutschsprachigen Wikipedia-Community! Wenn du dein Wikimedia-Konto verifizieren möchtest (empfohlen), gib bitte `</auth:1241068923730919464>` ein oder klicke darauf.
+welcome = Hallo {$mention}, willkommen auf dem inoffiziellen Discord-Server der deutschsprachigen Wikipedia-Community! Wenn du dein Wikimedia-Konto verifizieren möchtest (empfohlen), gib bitte </auth:1241068923730919464> ein oder klicke darauf.
 
 whois_global_groups = Globale Gruppen: {$groupslist}
 
