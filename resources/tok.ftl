@@ -44,7 +44,7 @@ user_link = https://meta.wikimedia.org/w/index.php?title=Special%3ACentralAuth/{
 welcome_has_auth = jan {$mention} o kama pona! mi sona e nimi sina [{$name}](<{$user_link}>), la sina wile ala pona sin e sona.
 
 welcome_has_auth_failed = jan {$mention} o kama pona! sina alasa pana e nimi sina. mi sona e ni. taso pakala la ilo Wikimesija li pana ala e sijelo. taso sina wile ala pana sin e sona.
-welcome = jan {$mention} o kama pona! kulupu Wikimesija la sina wile sona e pona pi sijelo sina, la o sitelen anu luka e ni: </auth:1241068923730919464>.
+welcome = jan {$mention} o kama pona! kulupu Wikimesija la sina wile pona e sona pi sijelo sina, la o sitelen anu luka e ni: </auth:1241068923730919464>.
 
 whois_global_groups = ken pi ma ali: {$groupslist}
 
