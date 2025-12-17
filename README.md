@@ -16,7 +16,7 @@ DM the bot with the following command, note that you need administrator permissi
 wab!setup_server [guild_id] [welcome_channel_id] [auth_log_channel_id] [deauth_log_channel_id] [authenticated_role_id] [server_language] [allow_banned_users] [whois_is_ephemeral] [allow_partially_blocked_users]
 ```
 
-Here's some explanation for the options:
+Here's some explanation for the options, replace `[guild_id]` with the numeric guild value without brackets, and so on:
 
 * To get the Guild ID of your server, open developer mode and right click your server to Copy ID. IDs for the later options should also use the Copy ID feature.
 * Welcome channel: the channel the bot will send the message "Welcome @Foo! If you would like to authenticate (validate) your Wikimedia account, please type /auth" in.
