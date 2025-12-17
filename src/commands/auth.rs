@@ -12,7 +12,7 @@ use serenity::all::{
 use serenity::builder::{CreateEmbed, CreateEmbedFooter, EditInteractionResponse};
 use tokio::spawn;
 use tokio::time::timeout;
-use tracing::error;
+use tracing::{error, warn};
 use wikiauthbot_common::{AuthRequest, SuccessfulAuth, webhook_println};
 use wikiauthbot_db::{DatabaseConnection, DatabaseConnectionInGuild, msg};
 
@@ -244,10 +244,14 @@ pub async fn handle_successful_auth_inner(
             wmf_id = wmf_id
         );
         let authlog = authlog.unwrap();
-        CreateMessage::new()
+        if CreateMessage::new()
             .content(authlog)
             .execute(http, (auth_log_channel_id.into(), Some(guild)))
-            .await?;
+            .await
+            .is_err()
+        {
+            warn!("I couldn't send a message to {auth_log_channel_id} at guild id {guild}");
+        }
     }
 
     let auditlog = msg!(parent_db, "auditlog_successful_auth", wmf_id = wmf_id)?;

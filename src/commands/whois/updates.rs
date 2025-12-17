@@ -3,6 +3,7 @@ use std::ops::ControlFlow;
 
 use color_eyre::eyre::Context;
 use serenity::all::{Http, RoleId, UserId};
+use tracing::warn;
 use wikiauthbot_common::mwclient_with_url;
 use wikiauthbot_db::{DatabaseConnectionInGuild, msg};
 
@@ -45,7 +46,10 @@ pub(crate) async fn update_roles(
 ) -> Result {
     let guild_id = db.guild_id().into();
     let roles_before = {
-        let member = http.get_member(guild_id, discord_user_id).await?;
+        let Ok(member) = http.get_member(guild_id, discord_user_id).await else {
+            warn!("I couldn't get member; this is not supposed to happen");
+            return Ok(());
+        };
         let member_roles = member.roles.into_iter().collect::<HashSet<_>>();
         let managed_roles = db
             .authenticated_role_id()

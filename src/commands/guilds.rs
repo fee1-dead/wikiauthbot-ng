@@ -18,14 +18,7 @@ pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
         return Ok(());
     };
 
-    let is_server_admin = {
-        let channel = ctx.guild_channel().await.unwrap();
-        let member = ctx.author_member().await.unwrap();
-        ctx.guild()
-            .unwrap()
-            .user_permissions_in(&channel, &member)
-            .administrator()
-    };
+    let is_server_admin = super::utils::is_server_admin(ctx, guild_id, ctx.channel_id(), ctx.author().id).await;
     if !is_server_admin {
         ctx.reply("You must have the Administrator permission to use this command.")
             .await?;
@@ -74,13 +67,7 @@ pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
 #[poise::command(prefix_command, dm_only, hide_in_help)]
 pub async fn unauthed_list(ctx: Context<'_>, guild_id: GuildId) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
-    let is_server_admin = {
-        let guild = ctx.cache().guild(guild_id).unwrap();
-        let channel = guild.channels.iter().next().unwrap().1;
-        guild
-            .user_permissions_in(channel, &guild.members[&ctx.author().id])
-            .administrator()
-    };
+    let is_server_admin = super::utils::is_server_admin(ctx, guild_id, ctx.channel_id(), ctx.author().id).await;
 
     if !is_bot_owner && !is_server_admin {
         ctx.reply("Must be a bot owner or server admin to use this command.")
@@ -138,13 +125,7 @@ pub async fn premigrate_server_check(
 ) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
 
-    let is_server_admin = {
-        let guild = ctx.cache().guild(guild_id).unwrap();
-        let channel = guild.channels.iter().next().unwrap().1;
-        guild
-            .user_permissions_in(channel, &guild.members[&ctx.author().id])
-            .administrator()
-    };
+    let is_server_admin = super::utils::is_server_admin(ctx, guild_id, ctx.channel_id(), ctx.author().id).await;
 
     if !is_bot_owner && !is_server_admin {
         ctx.reply("Must be a bot owner or server admin to use this command.")
@@ -373,6 +354,14 @@ pub async fn setup_server(
         .edit(ctx, CreateReply::default().content("All done!"))
         .await?;
 
+    Ok(())
+}
+
+pub async fn view_server_settings(ctx: Context<'_>, guild_id: GuildId) -> Result {
+    Ok(())
+}
+
+pub async fn update_server_settings(ctx: Context<'_>, guild_id: GuildId) -> Result {
     Ok(())
 }
 
