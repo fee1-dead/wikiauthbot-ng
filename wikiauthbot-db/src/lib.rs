@@ -1,13 +1,14 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::process::exit;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
+use arc_swap::ArcSwap;
 use color_eyre::eyre::{ContextCompat, bail};
-use dashmap::DashMap;
 use fred::prelude::*;
 use fred::types::DEFAULT_JITTER_MS;
 use sqlx::mysql::{MySqlPoolOptions, MySqlRow};
@@ -28,12 +29,13 @@ pub struct RoleRule {
     pub role_id: NonZeroU64,
 }
 
+static SERVERS: LazyLock<ArcSwap<HashMap<NonZeroU64, Arc<ServerSettingsDataCache>>>> = LazyLock::new(|| ArcSwap::new(Arc::new(HashMap::new())));
+static ROLES: LazyLock<ArcSwap<HashMap<NonZeroU64, Vec<RoleRule>>>> = LazyLock::new(|| ArcSwap::new(Arc::new(HashMap::new())));
+
 #[derive(Clone)]
 pub struct DatabaseConnection {
     redis: RedisClient,
     sql: MySqlPool,
-    servers: DashMap<NonZeroU64, Arc<ServerSettingsDataCache>>,
-    roles: DashMap<NonZeroU64, Vec<RoleRule>>,
 }
 
 pub struct ChildDatabaseConnection {
@@ -60,18 +62,16 @@ impl DatabaseConnection {
     async fn new(redis: RedisClient, sql: MySqlPool) -> color_eyre::Result<Self> {
         sqlx::migrate!("./src/migrations").run(&sql).await?;
 
-        let servers = Self::load_server_settings(&sql).await?;
-        let roles = Self::load_server_role_rules(&sql).await?;
+        Self::load_server_settings(&sql).await?;
+        Self::load_server_role_rules(&sql).await?;
         Ok(Self {
             redis,
             sql,
-            servers,
-            roles,
         })
     }
     async fn load_server_settings(
         sql: &MySqlPool,
-    ) -> color_eyre::Result<DashMap<NonZeroU64, Arc<ServerSettingsDataCache>>> {
+    ) -> color_eyre::Result<()> {
         let all_settings = sqlx::query(
             "select
             guild_id,
@@ -88,7 +88,7 @@ impl DatabaseConnection {
         .fetch_all(sql)
         .await?;
 
-        let map = DashMap::new();
+        let mut map = HashMap::new();
         for row in all_settings {
             let id: u64 = row.get("guild_id");
             let guild_id = NonZeroU64::new(id).unwrap();
@@ -124,13 +124,14 @@ impl DatabaseConnection {
             };
             map.insert(guild_id, Arc::new(data.into()));
         }
+        SERVERS.store(Arc::new(map));
 
-        Ok(map)
+        Ok(())
     }
 
     async fn load_server_role_rules(
         sql: &MySqlPool,
-    ) -> color_eyre::Result<DashMap<NonZeroU64, Vec<RoleRule>>> {
+    ) -> color_eyre::Result<()> {
         let all_rules = sqlx::query(
             "select
             guild_id,
@@ -143,7 +144,7 @@ impl DatabaseConnection {
         .fetch_all(sql)
         .await?;
 
-        let map = DashMap::<_, Vec<_>>::new();
+        let mut map = HashMap::<_, Vec<_>>::new();
         for row in all_rules {
             let guild_id: u64 = row.get("guild_id");
             let guild_id = NonZeroU64::new(guild_id).unwrap();
@@ -162,7 +163,7 @@ impl DatabaseConnection {
                 implicit_api_url,
                 role_id,
             };
-            if let Some((_, mut rules)) = map.remove(&guild_id) {
+            if let Some(mut rules) = map.remove(&guild_id) {
                 rules.push(data);
                 map.insert(guild_id, rules);
             } else {
@@ -170,7 +171,9 @@ impl DatabaseConnection {
             }
         }
 
-        Ok(map)
+        ROLES.store(Arc::new(map));
+
+        Ok(())
     }
 
     pub async fn connect_mysql() -> color_eyre::Result<MySqlPool> {
@@ -339,11 +342,10 @@ impl DatabaseConnection {
         DatabaseConnectionInGuild {
             inner: self,
             guild_id,
-            server_settings: self
-                .servers
+            server_settings: SERVERS.load()
                 .get(&guild_id)
-                .map(|x| x.value().clone().into()),
-            role_rules: self.roles.get(&guild_id).map(|x| x.value().clone()),
+                .map(|x| x.clone().into()),
+            role_rules: ROLES.load().get(&guild_id).map(|x| x.clone()),
         }
     }
 
@@ -509,7 +511,11 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     ) -> color_eyre::Result<()> {
         assert!(self.server_settings.is_none());
         let data_cache = Arc::new(ServerSettingsDataCache::from(data));
-        self.servers.insert(self.guild_id, data_cache.clone());
+        SERVERS.rcu(|map| { 
+            let mut map = (&**map).clone();
+            map.insert(self.guild_id, data_cache.clone());
+            map
+        });
         self.server_settings = Some(data_cache);
         let ServerSettingsData {
             welcome_channel_id,
@@ -546,7 +552,11 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         let data = update(data.load());
         let data_cache = Arc::new(ServerSettingsDataCache::from(data));
         self.server_settings = Some(data_cache.clone());
-        self.servers.insert(self.guild_id, data_cache);
+        SERVERS.rcu(|map| { 
+            let mut map = (&**map).clone();
+            map.insert(self.guild_id, data_cache.clone());
+            map
+        });
 
         let ServerSettingsData {
             welcome_channel_id,
@@ -590,7 +600,11 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     pub async fn add_role_rule(&mut self, rule: RoleRule) -> color_eyre::Result<()> {
         let mut rules = self.role_rules.take().unwrap_or_default();
         rules.push(rule.clone());
-        self.roles.insert(self.guild_id, rules.clone());
+        ROLES.rcu(|map| {
+            let mut map = (&**map).clone();
+            map.insert(self.guild_id, rules.clone());
+            map
+        });
         self.role_rules = Some(rules);
         let mut q = QueryBuilder::new("INSERT INTO guild_roles VALUES(");
         let mut separated = q.separated(", ");

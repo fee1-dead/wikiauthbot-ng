@@ -13,5 +13,5 @@ fred.workspace = true
 wikiauthbot-common = { path = "../wikiauthbot-common" }
 tokio.workspace = true
 tracing.workspace = true
-dashmap = "5.5.3"
 sqlx.workspace = true
+arc-swap = "1.7.1"

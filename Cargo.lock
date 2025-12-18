@@ -3701,8 +3701,8 @@ dependencies = [
 name = "wikiauthbot-db"
 version = "0.1.0"
 dependencies = [
+ "arc-swap",
  "color-eyre",
- "dashmap",
  "fred",
  "futures",
  "sqlx",
