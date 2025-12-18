@@ -1,4 +1,4 @@
-use fred::error::{RedisError, RedisErrorKind};
+use fred::error::{Error as RedisError, ErrorKind as RedisErrorKind};
 use serenity::all::{Builder, CreateMessage, Mentionable};
 use serenity::client::FullEvent;
 use tokio::spawn;

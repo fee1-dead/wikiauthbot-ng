@@ -10,7 +10,8 @@ use std::time::{Duration, Instant};
 use arc_swap::ArcSwap;
 use color_eyre::eyre::{ContextCompat, bail};
 use fred::prelude::*;
-use fred::types::DEFAULT_JITTER_MS;
+use fred::prelude::Config as RedisConfig;
+use fred::error::ErrorKind;
 use sqlx::mysql::{MySqlPoolOptions, MySqlRow};
 use sqlx::{MySqlPool, QueryBuilder, Row};
 use wikiauthbot_common::i18n::{AtomicLanguageId, LanguageId};
@@ -34,21 +35,21 @@ static ROLES: LazyLock<ArcSwap<HashMap<NonZeroU64, Vec<RoleRule>>>> = LazyLock::
 
 #[derive(Clone)]
 pub struct DatabaseConnection {
-    redis: RedisClient,
+    redis: Client,
     sql: MySqlPool,
 }
 
 pub struct ChildDatabaseConnection {
-    redis: RedisClient,
+    redis: Client,
 }
 
-async fn make_and_init_redis_client(config: RedisConfig) -> RedisResult<RedisClient> {
+async fn make_and_init_redis_client(config: RedisConfig) -> FredResult<Client> {
     let mut builder = Builder::from_config(config);
     builder.set_policy(ReconnectPolicy::Constant {
         attempts: 0,
         max_attempts: 10,
         delay: 1000,
-        jitter: DEFAULT_JITTER_MS,
+        jitter: fred::types::config::DEFAULT_JITTER_MS,
     });
     let mut conn_config = ConnectionConfig::default();
     conn_config.unresponsive.max_timeout = Some(Duration::from_secs(10));
@@ -59,7 +60,7 @@ async fn make_and_init_redis_client(config: RedisConfig) -> RedisResult<RedisCli
 }
 
 impl DatabaseConnection {
-    async fn new(redis: RedisClient, sql: MySqlPool) -> color_eyre::Result<Self> {
+    async fn new(redis: Client, sql: MySqlPool) -> color_eyre::Result<Self> {
         sqlx::migrate!("./src/migrations").run(&sql).await?;
 
         Self::load_server_settings(&sql).await?;
@@ -199,11 +200,11 @@ impl DatabaseConnection {
         Self::new(redis, Self::connect_mysql().await?).await
     }
 
-    pub fn into_parts(self) -> (RedisClient, MySqlPool) {
+    pub fn into_parts(self) -> (Client, MySqlPool) {
         (self.redis, self.sql)
     }
 
-    pub async fn get_child(&self) -> RedisResult<ChildDatabaseConnection> {
+    pub async fn get_child(&self) -> FredResult<ChildDatabaseConnection> {
         let redis = self.redis.clone_new();
         try_redis(redis.init().await)?;
         Ok(ChildDatabaseConnection { redis })
@@ -288,14 +289,14 @@ impl From<ServerSettingsData> for ServerSettingsDataCache {
     }
 }
 
-fn try_redis<T>(x: RedisResult<T>) -> RedisResult<T> {
+fn try_redis<T>(x: FredResult<T>) -> FredResult<T> {
     match x {
         Ok(x) => Ok(x),
         Err(redis) => match redis.kind() {
-            RedisErrorKind::IO
-            | RedisErrorKind::Timeout
-            | RedisErrorKind::Canceled
-            | RedisErrorKind::Unknown => {
+            ErrorKind::IO
+            | ErrorKind::Timeout
+            | ErrorKind::Canceled
+            | ErrorKind::Unknown => {
                 eprintln!("crashing due to error: {redis}");
                 exit(1)
             }
