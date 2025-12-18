@@ -56,3 +56,6 @@ wikiauthbot-server = { path = "wikiauthbot-server" }
 version = "0.12.0"
 default-features = false
 features = ["client", "model", "cache", "rustls_backend"]
+
+[profile.release]
+debug = true
