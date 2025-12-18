@@ -9,20 +9,21 @@ pub mod whois;
 mod utils;
 
 pub use auth::handle_successful_auth;
-use wikiauthbot_common::i18n::{get_locales_map, get_message};
+use wikiauthbot_common::i18n::{all_languages, get_message};
 
 fn localize_command(mut c: Command) -> Command {
     let mut langs = Vec::new();
-    for &lang in get_locales_map().keys() {
+    for lang in all_languages() {
+        let lang_name = lang.name();
         // these are the only locales supported by Discord it seems
         // https://discord.com/developers/docs/reference#locales
         #[allow(clippy::wildcard_in_or_patterns)]
-        let discord_lang = match lang {
+        let discord_lang = match lang_name {
             "zh-hans" => "zh-CN",
             "es" => "es-419",
             "de" | "da" | "id" | "fr" | "hr" | "it" | "lt" | "hu" | "nl" | "no" | "pl" | "ro"
             | "fi" | "vi" | "tr" | "cs" | "el" | "bg" | "ru" | "uk" | "hi" | "th" | "ja" | "ko" => {
-                lang
+                lang_name
             }
             // not covered: pt-BR, sv-SE, zh-TW, es-ES, en-GB, en-US
             "en" | _ => continue,
@@ -94,6 +95,8 @@ pub fn all_commands() -> Vec<Command> {
         guilds::unauthed_list(),
         guilds::set_server_language(),
         guilds::set_server_whois_is_ephemeral(),
+        guilds::fetch_server_settings(),
+        guilds::update_server_settings(),
         misc::register(),
         misc::debug_deauth(),
         localize_command(revwhois::revwhois()),

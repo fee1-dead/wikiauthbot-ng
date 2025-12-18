@@ -5,6 +5,8 @@ use color_eyre::eyre::OptionExt;
 use poise::CreateReply;
 use serenity::all::{ChannelId, GuildId, RoleId};
 use serenity::futures::TryStreamExt;
+use tracing::warn;
+use wikiauthbot_common::i18n::LanguageId;
 use wikiauthbot_db::{RoleRule, ServerSettingsData};
 
 use crate::{Context, Result, integrity};
@@ -18,7 +20,8 @@ pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
         return Ok(());
     };
 
-    let is_server_admin = super::utils::is_server_admin(ctx, guild_id, ctx.channel_id(), ctx.author().id).await;
+    let is_server_admin =
+        super::utils::is_server_admin(ctx, guild_id, ctx.channel_id(), ctx.author().id).await;
     if !is_server_admin {
         ctx.reply("You must have the Administrator permission to use this command.")
             .await?;
@@ -67,7 +70,8 @@ pub async fn cleanup_roles(ctx: Context<'_>) -> Result {
 #[poise::command(prefix_command, dm_only, hide_in_help)]
 pub async fn unauthed_list(ctx: Context<'_>, guild_id: GuildId) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
-    let is_server_admin = super::utils::is_server_admin(ctx, guild_id, ctx.channel_id(), ctx.author().id).await;
+    let is_server_admin =
+        super::utils::is_server_admin(ctx, guild_id, ctx.channel_id(), ctx.author().id).await;
 
     if !is_bot_owner && !is_server_admin {
         ctx.reply("Must be a bot owner or server admin to use this command.")
@@ -125,7 +129,8 @@ pub async fn premigrate_server_check(
 ) -> Result {
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
 
-    let is_server_admin = super::utils::is_server_admin(ctx, guild_id, ctx.channel_id(), ctx.author().id).await;
+    let is_server_admin =
+        super::utils::is_server_admin(ctx, guild_id, ctx.channel_id(), ctx.author().id).await;
 
     if !is_bot_owner && !is_server_admin {
         ctx.reply("Must be a bot owner or server admin to use this command.")
@@ -178,18 +183,12 @@ pub async fn server_settings_sanity_check(
         auth_log_channel_id,
         deauth_log_channel_id,
         authenticated_role_id,
-        server_language,
+        server_language: _,
         allow_banned_users,
         whois_is_ephemeral: _,
         allow_partially_blocked_users,
     }: &ServerSettingsData,
 ) -> Result<bool> {
-    if !wikiauthbot_common::i18n::lang_is_supported(server_language) {
-        ctx.reply("F: The language you have specified is not supported.")
-            .await?;
-        return Ok(false);
-    }
-
     let Ok(members) = guild_id.members(ctx, Some(1), None).await else {
         ctx.reply("F: failed to get members").await?;
         return Ok(false);
@@ -310,6 +309,11 @@ pub async fn setup_server(
         return Ok(());
     }
 
+    let Some(server_language) = LanguageId::try_from_str(&server_language) else {
+        ctx.reply("Invalid server language.").await?;
+        return Ok(());
+    };
+
     let data = ServerSettingsData {
         welcome_channel_id,
         auth_log_channel_id,
@@ -357,11 +361,125 @@ pub async fn setup_server(
     Ok(())
 }
 
-pub async fn view_server_settings(ctx: Context<'_>, guild_id: GuildId) -> Result {
+#[poise::command(prefix_command, dm_only, hide_in_help)]
+pub async fn fetch_server_settings(ctx: Context<'_>, guild_id: GuildId) -> Result {
+    let _typing = ctx.defer_or_broadcast().await?;
+    let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
+    let db = ctx.data().db_guild(&ctx);
+    if !db.has_server_settings() {
+        ctx.reply("unknown server").await?;
+        return Ok(());
+    }
+    let Some(welcome) = db.welcome_channel_id() else {
+        warn!("this is weird");
+        return Ok(());
+    };
+
+    let is_server_admin = super::utils::is_server_admin(
+        ctx,
+        guild_id,
+        ChannelId::new(welcome.get()),
+        ctx.author().id,
+    )
+    .await;
+
+    if !is_bot_owner && !is_server_admin {
+        ctx.reply("Must be a bot owner or server to use this command.")
+            .await?;
+        return Ok(());
+    }
+    let Some(data) = db.load_server_settings_weirdly() else {
+        warn!("this is also weird");
+        return Ok(());
+    };
+    let ServerSettingsData {
+        welcome_channel_id,
+        auth_log_channel_id,
+        deauth_log_channel_id,
+        authenticated_role_id,
+        server_language,
+        allow_banned_users,
+        whois_is_ephemeral,
+        allow_partially_blocked_users,
+    } = data;
+    let server_language = server_language.name();
+    ctx.reply(
+        format!(
+            "```rust\n\
+            {data:#?}\n\
+            ```\n\n\
+            command to update settings:\n\
+            ```\n\
+            wab!update_server_settings {welcome_channel_id} {auth_log_channel_id} {deauth_log_channel_id} \
+            {authenticated_role_id} {server_language} {allow_banned_users} {whois_is_ephemeral} \
+            {allow_partially_blocked_users}\n\
+            ```")).await?;
+
     Ok(())
 }
 
-pub async fn update_server_settings(ctx: Context<'_>, guild_id: GuildId) -> Result {
+#[poise::command(prefix_command, dm_only, hide_in_help)]
+pub async fn update_server_settings(
+    ctx: Context<'_>,
+    guild_id: GuildId,
+    welcome_channel_id: u64,
+    auth_log_channel_id: u64,
+    deauth_log_channel_id: u64,
+    authenticated_role_id: u64,
+    server_language: String,
+    allow_banned_users: bool,
+    whois_is_ephemeral: bool,
+    allow_partially_blocked_users: bool,
+) -> Result {
+    let _typing = ctx.defer_or_broadcast().await?;
+    let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
+    let mut db = ctx.data().db_guild(&ctx);
+    if !db.has_server_settings() {
+        ctx.reply("unknown server").await?;
+        return Ok(());
+    }
+    let Some(welcome) = db.welcome_channel_id() else {
+        warn!("this is weird");
+        return Ok(());
+    };
+
+    let is_server_admin = super::utils::is_server_admin(
+        ctx,
+        guild_id,
+        ChannelId::new(welcome.get()),
+        ctx.author().id,
+    )
+    .await;
+
+    if !is_bot_owner && !is_server_admin {
+        ctx.reply("Must be a bot owner or server to use this command.")
+            .await?;
+        return Ok(());
+    }
+    let Some(server_language) = LanguageId::try_from_str(&server_language) else {
+        ctx.reply("Invalid server language.").await?;
+        return Ok(());
+    };
+
+    let data = ServerSettingsData {
+        welcome_channel_id,
+        auth_log_channel_id,
+        deauth_log_channel_id,
+        authenticated_role_id,
+        server_language,
+        allow_banned_users,
+        whois_is_ephemeral,
+        allow_partially_blocked_users,
+    };
+
+    if !server_settings_sanity_check(ctx, guild_id, &data).await? {
+        // sanity check found something bad, just return here since the error is already given.
+        return Ok(());
+    }
+
+    db.update_server_settings(|_| data).await?;
+    ctx.reply("done!").await?;
+
     Ok(())
 }
 
@@ -378,8 +496,14 @@ pub async fn set_server_language(
             .await?;
         return Ok(());
     }
+
+    let Some(server_language) = LanguageId::try_from_str(&server_language) else {
+        ctx.reply("Invalid server language.").await?;
+        return Ok(());
+    };
+
     let mut db = ctx.data().db.in_guild(guild_id);
-    let mut data = db.server_settings().clone().unwrap();
+    let mut data = db.load_server_settings_weirdly().unwrap();
 
     data.server_language = server_language;
 
@@ -409,7 +533,7 @@ pub async fn set_server_whois_is_ephemeral(
         return Ok(());
     }
     let mut db = ctx.data().db.in_guild(guild_id);
-    let mut data = db.server_settings().clone().unwrap();
+    let mut data = db.load_server_settings_weirdly().unwrap();
 
     data.whois_is_ephemeral = whois_is_ephemeral;
 

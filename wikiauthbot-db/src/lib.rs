@@ -2,14 +2,17 @@ use std::borrow::Cow;
 use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::process::exit;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-use color_eyre::eyre::bail;
+use color_eyre::eyre::{ContextCompat, bail};
 use dashmap::DashMap;
 use fred::prelude::*;
 use fred::types::DEFAULT_JITTER_MS;
 use sqlx::mysql::{MySqlPoolOptions, MySqlRow};
 use sqlx::{MySqlPool, QueryBuilder, Row};
+use wikiauthbot_common::i18n::{AtomicLanguageId, LanguageId};
 use wikiauthbot_common::{BlockKind, Config};
 
 pub mod server;
@@ -29,7 +32,7 @@ pub struct RoleRule {
 pub struct DatabaseConnection {
     redis: RedisClient,
     sql: MySqlPool,
-    servers: DashMap<NonZeroU64, ServerSettingsData>,
+    servers: DashMap<NonZeroU64, Arc<ServerSettingsDataCache>>,
     roles: DashMap<NonZeroU64, Vec<RoleRule>>,
 }
 
@@ -68,7 +71,7 @@ impl DatabaseConnection {
     }
     async fn load_server_settings(
         sql: &MySqlPool,
-    ) -> color_eyre::Result<DashMap<NonZeroU64, ServerSettingsData>> {
+    ) -> color_eyre::Result<DashMap<NonZeroU64, Arc<ServerSettingsDataCache>>> {
         let all_settings = sqlx::query(
             "select
             guild_id,
@@ -98,8 +101,12 @@ impl DatabaseConnection {
                 welcome_channel_id,
                 auth_log_channel_id,
                 deauth_log_channel_id,
-                authenticated_role_id,
-                server_language,
+                authenticated_role_id
+            );
+            let server_language: String = row.get("server_language");
+            let server_language =
+                LanguageId::try_from_str(&server_language).context("valid server_language")?;
+            fetch!(
                 allow_banned_users,
                 whois_is_ephemeral,
                 allow_partially_blocked_users,
@@ -115,7 +122,7 @@ impl DatabaseConnection {
                 whois_is_ephemeral,
                 allow_partially_blocked_users,
             };
-            map.insert(guild_id, data);
+            map.insert(guild_id, Arc::new(data.into()));
         }
 
         Ok(map)
@@ -213,16 +220,69 @@ pub struct WhoisResult {
     pub wikimedia_id: u32,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug)]
 pub struct ServerSettingsData {
     pub welcome_channel_id: u64,
     pub auth_log_channel_id: u64,
     pub deauth_log_channel_id: u64,
     pub authenticated_role_id: u64,
-    pub server_language: String,
+    pub server_language: LanguageId,
     pub allow_banned_users: bool,
     pub whois_is_ephemeral: bool,
     pub allow_partially_blocked_users: bool,
+}
+
+struct ServerSettingsDataCache {
+    pub welcome_channel_id: AtomicU64,
+    pub auth_log_channel_id: AtomicU64,
+    pub deauth_log_channel_id: AtomicU64,
+    pub authenticated_role_id: AtomicU64,
+    pub server_language: AtomicLanguageId,
+    pub allow_banned_users: AtomicBool,
+    pub whois_is_ephemeral: AtomicBool,
+    pub allow_partially_blocked_users: AtomicBool,
+}
+
+impl ServerSettingsDataCache {
+    fn load(&self) -> ServerSettingsData {
+        ServerSettingsData {
+            welcome_channel_id: self.welcome_channel_id.load(Ordering::SeqCst),
+            auth_log_channel_id: self.auth_log_channel_id.load(Ordering::SeqCst),
+            deauth_log_channel_id: self.deauth_log_channel_id.load(Ordering::SeqCst),
+            authenticated_role_id: self.authenticated_role_id.load(Ordering::SeqCst),
+            server_language: self.server_language.load(),
+            allow_banned_users: self.allow_banned_users.load(Ordering::SeqCst),
+            whois_is_ephemeral: self.whois_is_ephemeral.load(Ordering::SeqCst),
+            allow_partially_blocked_users: self
+                .allow_partially_blocked_users
+                .load(Ordering::SeqCst),
+        }
+    }
+}
+
+impl From<ServerSettingsData> for ServerSettingsDataCache {
+    fn from(value: ServerSettingsData) -> Self {
+        let ServerSettingsData {
+            welcome_channel_id,
+            auth_log_channel_id,
+            deauth_log_channel_id,
+            authenticated_role_id,
+            server_language,
+            allow_banned_users,
+            whois_is_ephemeral,
+            allow_partially_blocked_users,
+        } = value;
+        ServerSettingsDataCache {
+            welcome_channel_id: welcome_channel_id.into(),
+            auth_log_channel_id: auth_log_channel_id.into(),
+            deauth_log_channel_id: deauth_log_channel_id.into(),
+            authenticated_role_id: authenticated_role_id.into(),
+            server_language: AtomicLanguageId::new(server_language),
+            allow_banned_users: allow_banned_users.into(),
+            whois_is_ephemeral: whois_is_ephemeral.into(),
+            allow_partially_blocked_users: allow_partially_blocked_users.into(),
+        }
+    }
 }
 
 fn try_redis<T>(x: RedisResult<T>) -> RedisResult<T> {
@@ -279,7 +339,10 @@ impl DatabaseConnection {
         DatabaseConnectionInGuild {
             inner: self,
             guild_id,
-            server_settings: self.servers.get(&guild_id).map(|x| x.value().clone()),
+            server_settings: self
+                .servers
+                .get(&guild_id)
+                .map(|x| x.value().clone().into()),
             role_rules: self.roles.get(&guild_id).map(|x| x.value().clone()),
         }
     }
@@ -298,7 +361,7 @@ impl DatabaseConnection {
 pub struct DatabaseConnectionInGuild<'a> {
     inner: &'a DatabaseConnection,
     guild_id: NonZeroU64,
-    server_settings: Option<ServerSettingsData>,
+    server_settings: Option<Arc<ServerSettingsDataCache>>,
     role_rules: Option<Vec<RoleRule>>,
 }
 
@@ -316,8 +379,8 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         self.guild_id
     }
 
-    pub fn server_settings(&self) -> &Option<ServerSettingsData> {
-        &self.server_settings
+    pub fn load_server_settings_weirdly(&self) -> Option<ServerSettingsData> {
+        self.server_settings.as_ref().map(|x| x.load())
     }
 
     pub fn role_rules(&self) -> &Option<Vec<RoleRule>> {
@@ -400,8 +463,12 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         Ok(values)
     }
 
-    pub fn server_language(&self) -> &str {
-        &self.server_settings.as_ref().unwrap().server_language
+    pub fn server_language(&self) -> LanguageId {
+        self.server_settings
+            .as_ref()
+            .unwrap()
+            .server_language
+            .load()
     }
 
     pub async fn full_auth(&self, discord_id: u64, wikimedia_id: u32) -> color_eyre::Result<()> {
@@ -441,8 +508,9 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         data: ServerSettingsData,
     ) -> color_eyre::Result<()> {
         assert!(self.server_settings.is_none());
-        self.servers.insert(self.guild_id, data.clone());
-        self.server_settings = Some(data.clone());
+        let data_cache = Arc::new(ServerSettingsDataCache::from(data));
+        self.servers.insert(self.guild_id, data_cache.clone());
+        self.server_settings = Some(data_cache);
         let ServerSettingsData {
             welcome_channel_id,
             auth_log_channel_id,
@@ -461,7 +529,7 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             .push_bind(auth_log_channel_id)
             .push_bind(deauth_log_channel_id)
             .push_bind(authenticated_role_id)
-            .push_bind(server_language)
+            .push_bind(server_language.name())
             .push_bind(allow_banned_users)
             .push_bind(whois_is_ephemeral)
             .push_bind(allow_partially_blocked_users);
@@ -475,9 +543,10 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         update: impl FnOnce(ServerSettingsData) -> ServerSettingsData,
     ) -> color_eyre::Result<()> {
         let data = self.server_settings.take().unwrap();
-        let data = update(data);
-        self.server_settings = Some(data.clone());
-        self.servers.insert(self.guild_id, data.clone());
+        let data = update(data.load());
+        let data_cache = Arc::new(ServerSettingsDataCache::from(data));
+        self.server_settings = Some(data_cache.clone());
+        self.servers.insert(self.guild_id, data_cache);
 
         let ServerSettingsData {
             welcome_channel_id,
@@ -507,7 +576,7 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         .bind(auth_log_channel_id)
         .bind(deauth_log_channel_id)
         .bind(authenticated_role_id)
-        .bind(server_language)
+        .bind(server_language.name())
         .bind(allow_banned_users)
         .bind(whois_is_ephemeral)
         .bind(allow_partially_blocked_users)
@@ -570,42 +639,42 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     pub fn welcome_channel_id(&self) -> Option<NonZeroU64> {
         self.server_settings
             .as_ref()
-            .map(|data| data.welcome_channel_id)
+            .map(|data| data.welcome_channel_id.load(Ordering::SeqCst))
             .and_then(NonZeroU64::new)
     }
 
     pub fn auth_log_channel_id(&self) -> Option<NonZeroU64> {
         self.server_settings
             .as_ref()
-            .map(|data: &ServerSettingsData| data.auth_log_channel_id)
+            .map(|data| data.auth_log_channel_id.load(Ordering::SeqCst))
             .and_then(NonZeroU64::new)
     }
 
     pub fn deauth_log_channel_id(&self) -> Option<NonZeroU64> {
         self.server_settings
             .as_ref()
-            .map(|data: &ServerSettingsData| data.deauth_log_channel_id)
+            .map(|data| data.deauth_log_channel_id.load(Ordering::SeqCst))
             .and_then(NonZeroU64::new)
     }
 
     pub fn authenticated_role_id(&self) -> Option<NonZeroU64> {
         self.server_settings
             .as_ref()
-            .map(|data: &ServerSettingsData| data.authenticated_role_id)
+            .map(|data| data.authenticated_role_id.load(Ordering::SeqCst))
             .and_then(NonZeroU64::new)
     }
 
     pub fn all_managed_roles(&self) -> impl Iterator<Item = NonZeroU64> + '_ {
         self.server_settings
             .as_ref()
-            .map(|data: &ServerSettingsData| data.authenticated_role_id)
+            .map(|data| data.authenticated_role_id.load(Ordering::SeqCst))
             .and_then(NonZeroU64::new)
             .into_iter()
             .chain(self.role_rules().iter().flatten().map(|rule| rule.role_id))
     }
 
     pub fn whois_is_ephemeral(&self) -> bool {
-        self.server_settings.as_ref().unwrap().whois_is_ephemeral
+        self.server_settings.as_ref().unwrap().whois_is_ephemeral.load(Ordering::SeqCst)
     }
 
     pub fn disallows_block_status(&self, status: BlockKind) -> bool {
@@ -617,7 +686,7 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     }
 
     pub fn disallows_blocked_users(&self) -> bool {
-        !self.server_settings.as_ref().unwrap().allow_banned_users
+        !self.server_settings.as_ref().unwrap().allow_banned_users.load(Ordering::SeqCst)
     }
 
     pub fn disallows_partially_blocked_users(&self) -> bool {
@@ -625,7 +694,7 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             .server_settings
             .as_ref()
             .unwrap()
-            .allow_partially_blocked_users
+            .allow_partially_blocked_users.load(Ordering::SeqCst)
     }
 
     pub fn has_server_settings(&self) -> bool {

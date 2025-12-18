@@ -3,6 +3,7 @@ use std::num::NonZeroU64;
 
 use color_eyre::eyre::ContextCompat;
 use fred::prelude::*;
+use wikiauthbot_common::i18n::LanguageId;
 use wikiauthbot_common::{AuthRequest, SuccessfulAuth};
 
 use crate::{ChildDatabaseConnection, DatabaseConnection, try_redis};
@@ -41,7 +42,7 @@ impl DatabaseConnection {
         () = try_redis(txn.get(format!("auth_req:{state}:discord_user_id")).await)?;
         () = try_redis(txn.get(format!("auth_req:{state}:guild_id")).await)?;
         () = try_redis(txn.get(format!("auth_req:{state}:lang")).await)?;
-        let o: Option<(u64, u64, String)> = try_redis(txn.exec(true).await)?;
+        let o: Option<(u64, u64, usize)> = try_redis(txn.exec(true).await)?;
         o.map(|(discord_user_id, guild_id, lang)| {
             AuthRequest::from_redis(state, discord_user_id, guild_id, lang)
         })
@@ -91,7 +92,7 @@ impl DatabaseConnection {
         state: impl Display,
         discord_user_id: NonZeroU64,
         guild_id: NonZeroU64,
-        lang: &str,
+        lang: LanguageId,
     ) -> RedisResult<()> {
         let txn = self.redis.multi();
         () = try_redis(
@@ -117,7 +118,7 @@ impl DatabaseConnection {
         () = try_redis(
             txn.set(
                 format!("auth_req:{state}:lang"),
-                lang,
+                lang.value(),
                 Some(Expiration::EX(60 * 10)),
                 None,
                 false,
