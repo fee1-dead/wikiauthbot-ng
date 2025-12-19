@@ -365,7 +365,7 @@ pub async fn setup_server(
 pub async fn fetch_server_settings(ctx: Context<'_>, guild_id: GuildId) -> Result {
     let _typing = ctx.defer_or_broadcast().await?;
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
-    let db = ctx.data().db_guild(&ctx);
+    let db = ctx.data().db.in_guild(guild_id);
     if !db.has_server_settings() {
         ctx.reply("unknown server").await?;
         return Ok(());
