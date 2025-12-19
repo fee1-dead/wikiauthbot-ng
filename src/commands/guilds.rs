@@ -433,7 +433,7 @@ pub async fn update_server_settings(
 ) -> Result {
     let _typing = ctx.defer_or_broadcast().await?;
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
-    let mut db = ctx.data().db_guild(&ctx);
+    let mut db = ctx.data().db.in_guild(guild_id);
     if !db.has_server_settings() {
         ctx.reply("unknown server").await?;
         return Ok(());
