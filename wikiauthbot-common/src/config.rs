@@ -12,7 +12,7 @@ struct PublicCfg {
 
 impl PublicCfg {
     fn read() -> color_eyre::Result<PublicCfg> {
-        Ok(toml::from_str(&fs::read_to_string("./config.toml")?)?)
+        Ok(toml::from_str(&fs::read_to_string("/data/project/wikiauthbot-ng/config.toml")?)?)
     }
 }
 
@@ -29,7 +29,7 @@ struct PrivateCfg {
 impl PrivateCfg {
     fn read() -> Result<PrivateCfg> {
         Ok(toml::from_str(&fs::read_to_string(
-            "./config_secret.toml",
+            "/data/project/wikiauthbot-ng/config_secret.toml",
         )?)?)
     }
 }
