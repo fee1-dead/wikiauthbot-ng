@@ -2,6 +2,7 @@
   continuous: true
   image: tool-wikiauthbot-ng/tool-wikiauthbot-ng:latest
   name: discord
+  mount: all
 - command: server
   continuous: true
   image: tool-containers/redis:latest
