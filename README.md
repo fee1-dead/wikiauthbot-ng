@@ -37,3 +37,11 @@ lost (e.g. due to renames). To get a list of people that need to be reauthentica
 
 After notifying people who need to reauthenticate, use `/cleanup_roles` so that the bot removes the
 authenticated role from them.
+
+## Adding an additional Discord role when a person is in a certain wiki user group
+
+There is a feature that can be turned on to get the bot to add more than just the Authenticated role. It can check a wiki and then conditionally add a second role corresponding to a wiki [user group](https://www.mediawiki.org/wiki/Help:User_rights_and_groups#Unchangeable_user_groups). For example, Autoconfirmed. If interested, please contact the bot's maintainer to turn this on.
+
+## Third party wikis
+
+This bot currently only works on Wikimedia wikis. It assumes that [CentralAuth](https://www.mediawiki.org/wiki/Extension:CentralAuth) is turned on in your wiki-farm.
