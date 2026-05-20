@@ -44,4 +44,4 @@ There is a feature that can be turned on to get the bot to add more than just th
 
 ## Third party wikis
 
-This bot currently only works on Wikimedia wikis. It assumes that [CentralAuth](https://www.mediawiki.org/wiki/Extension:CentralAuth) is turned on in your wiki-farm.
+This bot currently only works on Wikimedia wikis. It assumes that [CentralAuth](https://www.mediawiki.org/wiki/Extension:CentralAuth) is used by your wiki-farm.
