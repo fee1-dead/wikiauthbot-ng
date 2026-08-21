@@ -37,7 +37,7 @@ impl AuthRequest {
         lang: usize,
     ) -> color_eyre::Result<AuthRequest> {
         if state.len() != 28 * 2 {
-            bail!("not a valid state string")
+            bail!("not a valid state string");
         }
 
         let lang = LanguageId::new(lang).context("valid language ID")?;

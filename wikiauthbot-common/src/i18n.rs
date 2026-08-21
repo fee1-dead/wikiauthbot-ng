@@ -88,6 +88,11 @@ const LOCALES: &[LocaleInfo] = &[
         file: include_str!("../../resources/ms.ftl"),
     },
     LocaleInfo {
+        name: "nl",
+        lang: langid!("nl"),
+        file: include_str!("../../resources/nl.ftl"),
+    },
+    LocaleInfo {
         name: "pl",
         lang: langid!("pl"),
         file: include_str!("../../resources/pl.ftl"),
@@ -207,7 +212,7 @@ fn get_message_inner(
         [] => {}
         [one] => return Err(one.clone().into()),
         multiple => {
-            bail!("multiple fluent errors: {multiple:?}")
+            bail!("multiple fluent errors: {multiple:?}");
         }
     }
     Ok(msg)

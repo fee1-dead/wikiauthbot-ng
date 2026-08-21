@@ -361,7 +361,8 @@ pub async fn setup_server(
     Ok(())
 }
 
-#[poise::command(prefix_command, dm_only, hide_in_help)]
+/// fetch server settings. only available to server admins.
+#[poise::command(prefix_command, dm_only)]
 pub async fn fetch_server_settings(ctx: Context<'_>, guild_id: GuildId) -> Result {
     let _typing = ctx.defer_or_broadcast().await?;
     let is_bot_owner = ctx.framework().options().owners.contains(&ctx.author().id);
@@ -410,7 +411,7 @@ pub async fn fetch_server_settings(ctx: Context<'_>, guild_id: GuildId) -> Resul
             ```\n\n\
             command to update settings:\n\
             ```\n\
-            wab!update_server_settings {welcome_channel_id} {auth_log_channel_id} {deauth_log_channel_id} \
+            wab!update_server_settings {guild_id} {welcome_channel_id} {auth_log_channel_id} {deauth_log_channel_id} \
             {authenticated_role_id} {server_language} {allow_banned_users} {whois_is_ephemeral} \
             {allow_partially_blocked_users}\n\
             ```")).await?;
@@ -418,7 +419,8 @@ pub async fn fetch_server_settings(ctx: Context<'_>, guild_id: GuildId) -> Resul
     Ok(())
 }
 
-#[poise::command(prefix_command, dm_only, hide_in_help)]
+/// update server settings. only available to server admins.
+#[poise::command(prefix_command, dm_only)]
 pub async fn update_server_settings(
     ctx: Context<'_>,
     guild_id: GuildId,

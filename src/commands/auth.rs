@@ -83,7 +83,7 @@ pub async fn auth_data_already_exists(
         ])
         .await?;
     let Value::String(name) = val["query"]["globaluserinfo"]["name"].take() else {
-        bail!("name isn't string?")
+        bail!("name isn't string?");
     };
     let url = url::Url::parse_with_params(
         "https://meta.wikimedia.org/wiki/Special:CentralAuth",
