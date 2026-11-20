@@ -12,7 +12,7 @@ reqwest.workspace = true
 serde.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-wikiauthbot-common = { path = "../wikiauthbot-common" }
-wikiauthbot-db = { path = "../wikiauthbot-db" }
+wikiauthbot-common.workspace = true
+wikiauthbot-db.workspace = true
 color-eyre.workspace = true
 sha3.workspace = true

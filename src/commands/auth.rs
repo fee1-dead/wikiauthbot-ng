@@ -85,12 +85,8 @@ pub async fn auth_data_already_exists(
     let Value::String(name) = val["query"]["globaluserinfo"]["name"].take() else {
         bail!("name isn't string?");
     };
-    let url = url::Url::parse_with_params(
-        "https://meta.wikimedia.org/wiki/Special:CentralAuth",
-        [("target", &name)],
-    )
-    .unwrap();
-    let msg = msg!(db, "auth_to_server", name = &name, url = url.to_string())?;
+    let link = db.user_link(&name)?;
+    let msg = msg!(db, "auth_to_server", name = &name, url = link)?;
     let yes = msg!(db, "yes")?;
     let no = msg!(db, "no")?;
     let reply = CreateReply::default()

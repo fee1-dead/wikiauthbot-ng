@@ -10,8 +10,9 @@ edition.workspace = true
 color-eyre.workspace = true
 futures.workspace = true
 fred.workspace = true
-wikiauthbot-common = { path = "../wikiauthbot-common" }
+wikiauthbot-common.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 sqlx.workspace = true
-arc-swap = "1.7.1"
+arc-swap.workspace = true
+percent-encoding.workspace = true
