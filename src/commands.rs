@@ -5,8 +5,8 @@ mod deauth;
 mod guilds;
 mod misc;
 mod revwhois;
-pub mod whois;
 mod utils;
+pub mod whois;
 
 pub use auth::handle_successful_auth;
 use wikiauthbot_common::i18n::{all_languages, get_message};

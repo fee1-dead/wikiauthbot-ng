@@ -28,12 +28,14 @@ pub async fn whois_impl(ctx: Context<'_>, user_id: UserId) -> Result {
 
     let Some(g) = ctx.guild_id() else {
         ctx.reply("E: not in guild?").await?;
-        return Ok(())
+        return Ok(());
     };
 
     let member = g.member(ctx, user_id).await.ok();
 
-    if member.is_none() && !super::utils::is_server_admin(ctx, g, ctx.channel_id(), ctx.author().id).await {
+    if member.is_none()
+        && !super::utils::is_server_admin(ctx, g, ctx.channel_id(), ctx.author().id).await
+    {
         ctx.reply(db.get_message("whois_no_user_found")?).await?;
     }
 
@@ -48,9 +50,10 @@ pub async fn whois_impl(ctx: Context<'_>, user_id: UserId) -> Result {
     let whois = fetch_whois(client, wikimedia_id).await?;
     let whois = whois.into_embeddable(user_id).await?;
 
-    if member.is_some() && check_blocks(ctx.http(), &db, user_id, &whois)
-        .await?
-        .is_continue()
+    if member.is_some()
+        && check_blocks(ctx.http(), &db, user_id, &whois)
+            .await?
+            .is_continue()
     {
         update_roles(ctx.http(), &db, user_id, &whois).await?;
     }

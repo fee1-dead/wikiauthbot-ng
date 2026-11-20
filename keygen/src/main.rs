@@ -15,6 +15,6 @@ fn main() {
     let mut hasher = Sha3_256::new();
     hasher.update(&s);
     let x: [u8; 32] = hasher.finalize().into();
-    
+
     println!("key: {s}\nhash: {x:?}");
 }

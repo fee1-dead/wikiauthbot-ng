@@ -203,9 +203,11 @@ impl EmbeddableWhois {
             mb.push_str(&format!(
                 "**{wiki}** ({}){}\n",
                 expiry,
-                partial
-                    .then(|| format!(" ({pblocked})"))
-                    .unwrap_or_default()
+                if partial {
+                    format!(" ({pblocked})")
+                } else {
+                    String::new()
+                }
             ));
             mb.push_str(&format!("__{reason}__\n"));
         }

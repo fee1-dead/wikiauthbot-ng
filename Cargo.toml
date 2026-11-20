@@ -50,7 +50,6 @@ tracing.workspace = true
 url = "2.5.0"
 wikiauthbot-common = { path = "./wikiauthbot-common" }
 wikiauthbot-db = { path = "wikiauthbot-db" }
-wikiauthbot-server = { path = "wikiauthbot-server" }
 
 [dependencies.serenity]
 version = "0.12.0"

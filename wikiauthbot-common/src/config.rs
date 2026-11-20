@@ -12,7 +12,9 @@ struct PublicCfg {
 
 impl PublicCfg {
     fn read() -> color_eyre::Result<PublicCfg> {
-        Ok(toml::from_str(&fs::read_to_string("/data/project/wikiauthbot-ng/config.toml")?)?)
+        Ok(toml::from_str(&fs::read_to_string(
+            "/data/project/wikiauthbot-ng/config.toml",
+        )?)?)
     }
 }
 

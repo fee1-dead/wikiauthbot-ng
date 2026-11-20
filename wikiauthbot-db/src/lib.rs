@@ -3,15 +3,14 @@ use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::process::exit;
-use std::sync::{Arc, LazyLock};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, LazyLock};
 use std::time::{Duration, Instant};
 
 use arc_swap::ArcSwap;
 use color_eyre::eyre::{ContextCompat, bail};
-use fred::prelude::*;
-use fred::prelude::Config as RedisConfig;
 use fred::error::ErrorKind;
+use fred::prelude::{Config as RedisConfig, *};
 use sqlx::mysql::{MySqlPoolOptions, MySqlRow};
 use sqlx::{MySqlPool, QueryBuilder, Row};
 use wikiauthbot_common::i18n::{AtomicLanguageId, LanguageId};
@@ -30,8 +29,10 @@ pub struct RoleRule {
     pub role_id: NonZeroU64,
 }
 
-static SERVERS: LazyLock<ArcSwap<HashMap<NonZeroU64, Arc<ServerSettingsDataCache>>>> = LazyLock::new(|| ArcSwap::new(Arc::new(HashMap::new())));
-static ROLES: LazyLock<ArcSwap<HashMap<NonZeroU64, Vec<RoleRule>>>> = LazyLock::new(|| ArcSwap::new(Arc::new(HashMap::new())));
+static SERVERS: LazyLock<ArcSwap<HashMap<NonZeroU64, Arc<ServerSettingsDataCache>>>> =
+    LazyLock::new(|| ArcSwap::new(Arc::new(HashMap::new())));
+static ROLES: LazyLock<ArcSwap<HashMap<NonZeroU64, Vec<RoleRule>>>> =
+    LazyLock::new(|| ArcSwap::new(Arc::new(HashMap::new())));
 
 #[derive(Clone)]
 pub struct DatabaseConnection {
@@ -65,14 +66,9 @@ impl DatabaseConnection {
 
         Self::load_server_settings(&sql).await?;
         Self::load_server_role_rules(&sql).await?;
-        Ok(Self {
-            redis,
-            sql,
-        })
+        Ok(Self { redis, sql })
     }
-    async fn load_server_settings(
-        sql: &MySqlPool,
-    ) -> color_eyre::Result<()> {
+    async fn load_server_settings(sql: &MySqlPool) -> color_eyre::Result<()> {
         let all_settings = sqlx::query(
             "select
             guild_id,
@@ -130,9 +126,7 @@ impl DatabaseConnection {
         Ok(())
     }
 
-    async fn load_server_role_rules(
-        sql: &MySqlPool,
-    ) -> color_eyre::Result<()> {
+    async fn load_server_role_rules(sql: &MySqlPool) -> color_eyre::Result<()> {
         let all_rules = sqlx::query(
             "select
             guild_id,
@@ -293,10 +287,7 @@ fn try_redis<T>(x: FredResult<T>) -> FredResult<T> {
     match x {
         Ok(x) => Ok(x),
         Err(redis) => match redis.kind() {
-            ErrorKind::IO
-            | ErrorKind::Timeout
-            | ErrorKind::Canceled
-            | ErrorKind::Unknown => {
+            ErrorKind::IO | ErrorKind::Timeout | ErrorKind::Canceled | ErrorKind::Unknown => {
                 eprintln!("crashing due to error: {redis}");
                 exit(1)
             }
@@ -343,10 +334,8 @@ impl DatabaseConnection {
         DatabaseConnectionInGuild {
             inner: self,
             guild_id,
-            server_settings: SERVERS.load()
-                .get(&guild_id)
-                .map(|x| x.clone().into()),
-            role_rules: ROLES.load().get(&guild_id).map(|x| x.clone()),
+            server_settings: SERVERS.load().get(&guild_id).cloned(),
+            role_rules: ROLES.load().get(&guild_id).cloned(),
         }
     }
 
@@ -512,8 +501,8 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     ) -> color_eyre::Result<()> {
         assert!(self.server_settings.is_none());
         let data_cache = Arc::new(ServerSettingsDataCache::from(data));
-        SERVERS.rcu(|map| { 
-            let mut map = (&**map).clone();
+        SERVERS.rcu(|map| {
+            let mut map = (**map).clone();
             map.insert(self.guild_id, data_cache.clone());
             map
         });
@@ -553,8 +542,8 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         let data = update(data.load());
         let data_cache = Arc::new(ServerSettingsDataCache::from(data));
         self.server_settings = Some(data_cache.clone());
-        SERVERS.rcu(|map| { 
-            let mut map = (&**map).clone();
+        SERVERS.rcu(|map| {
+            let mut map = (**map).clone();
             map.insert(self.guild_id, data_cache.clone());
             map
         });
@@ -602,7 +591,7 @@ impl<'a> DatabaseConnectionInGuild<'a> {
         let mut rules = self.role_rules.take().unwrap_or_default();
         rules.push(rule.clone());
         ROLES.rcu(|map| {
-            let mut map = (&**map).clone();
+            let mut map = (**map).clone();
             map.insert(self.guild_id, rules.clone());
             map
         });
@@ -689,7 +678,11 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     }
 
     pub fn whois_is_ephemeral(&self) -> bool {
-        self.server_settings.as_ref().unwrap().whois_is_ephemeral.load(Ordering::SeqCst)
+        self.server_settings
+            .as_ref()
+            .unwrap()
+            .whois_is_ephemeral
+            .load(Ordering::SeqCst)
     }
 
     pub fn disallows_block_status(&self, status: BlockKind) -> bool {
@@ -701,7 +694,12 @@ impl<'a> DatabaseConnectionInGuild<'a> {
     }
 
     pub fn disallows_blocked_users(&self) -> bool {
-        !self.server_settings.as_ref().unwrap().allow_banned_users.load(Ordering::SeqCst)
+        !self
+            .server_settings
+            .as_ref()
+            .unwrap()
+            .allow_banned_users
+            .load(Ordering::SeqCst)
     }
 
     pub fn disallows_partially_blocked_users(&self) -> bool {
@@ -709,7 +707,8 @@ impl<'a> DatabaseConnectionInGuild<'a> {
             .server_settings
             .as_ref()
             .unwrap()
-            .allow_partially_blocked_users.load(Ordering::SeqCst)
+            .allow_partially_blocked_users
+            .load(Ordering::SeqCst)
     }
 
     pub fn has_server_settings(&self) -> bool {

@@ -421,6 +421,7 @@ pub async fn fetch_server_settings(ctx: Context<'_>, guild_id: GuildId) -> Resul
 
 /// update server settings. only available to server admins.
 #[poise::command(prefix_command, dm_only)]
+#[allow(clippy::too_many_arguments)]
 pub async fn update_server_settings(
     ctx: Context<'_>,
     guild_id: GuildId,

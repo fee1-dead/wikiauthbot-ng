@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::LazyLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use color_eyre::eyre::{ContextCompat, bail};
 pub use fluent;
@@ -127,18 +127,28 @@ const LOCALES: &[LocaleInfo] = &[
 static LOCALE_BUNDLES: LazyLock<Vec<FluentBundle<FluentResource>>> = LazyLock::new(|| {
     LOCALES
         .iter()
-        .map(|LocaleInfo { name: _, lang, file }| {
-            let mut bundle = FluentBundle::new_concurrent(vec![lang.clone()]);
-            bundle.set_use_isolating(false);
-            let resource = FluentResource::try_new(file.to_string()).unwrap();
-            bundle.add_resource(resource).unwrap();
-            bundle
-        })
+        .map(
+            |LocaleInfo {
+                 name: _,
+                 lang,
+                 file,
+             }| {
+                let mut bundle = FluentBundle::new_concurrent(vec![lang.clone()]);
+                bundle.set_use_isolating(false);
+                let resource = FluentResource::try_new(file.to_string()).unwrap();
+                bundle.add_resource(resource).unwrap();
+                bundle
+            },
+        )
         .collect()
 });
 
 static NAME_TO_ID: LazyLock<HashMap<&'static str, LanguageId>> = LazyLock::new(|| {
-    LOCALES.iter().enumerate().map(|(idx, locale)| (locale.name, LanguageId::new(idx).unwrap())).collect()
+    LOCALES
+        .iter()
+        .enumerate()
+        .map(|(idx, locale)| (locale.name, LanguageId::new(idx).unwrap()))
+        .collect()
 });
 
 pub fn all_languages() -> impl Iterator<Item = LanguageId> {
@@ -251,12 +261,20 @@ mod tests {
     fn basic_get_message() {
         assert_eq!(
             "No user found. Either the user is not in this server or is unauthenticated.",
-            super::get_message(LanguageId::try_from_str("en").unwrap(), "whois_no_user_found").unwrap(),
+            super::get_message(
+                LanguageId::try_from_str("en").unwrap(),
+                "whois_no_user_found"
+            )
+            .unwrap(),
         );
 
         assert_eq!(
             "Usuario no encontrado. Puede deberse a que el usuario no esté en el servidor o esté sin autenticar.",
-            super::get_message(LanguageId::try_from_str("es").unwrap(), "whois_no_user_found").unwrap(),
+            super::get_message(
+                LanguageId::try_from_str("es").unwrap(),
+                "whois_no_user_found"
+            )
+            .unwrap(),
         );
     }
 
@@ -264,11 +282,20 @@ mod tests {
     fn macro_uses() {
         assert_eq!(
             "No user found. Either the user is not in this server or is unauthenticated.",
-            super::msg!(LanguageId::try_from_str("en").unwrap(), "whois_no_user_found").unwrap(),
+            super::msg!(
+                LanguageId::try_from_str("en").unwrap(),
+                "whois_no_user_found"
+            )
+            .unwrap(),
         );
         assert_eq!(
             "https://en.wikipedia.org/w/index.php?title=Special%3ACentralAuth/0xDeadbeef",
-            super::msg!(LanguageId::try_from_str("en").unwrap(), "user_link", normalized_name = "0xDeadbeef").unwrap(),
+            super::msg!(
+                LanguageId::try_from_str("en").unwrap(),
+                "user_link",
+                normalized_name = "0xDeadbeef"
+            )
+            .unwrap(),
         );
     }
 }

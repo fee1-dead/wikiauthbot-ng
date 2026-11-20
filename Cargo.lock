@@ -1608,7 +1608,6 @@ dependencies = [
 name = "keygen"
 version = "0.1.0"
 dependencies = [
- "color-eyre",
  "rand 0.9.1",
  "sha3",
 ]
@@ -3745,7 +3744,6 @@ dependencies = [
  "url",
  "wikiauthbot-common",
  "wikiauthbot-db",
- "wikiauthbot-server",
 ]
 
 [[package]]
