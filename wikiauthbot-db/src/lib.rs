@@ -415,7 +415,9 @@ impl<'a> DatabaseConnectionInGuild<'a> {
 
     pub fn user_link(&self, user_name: &str) -> color_eyre::Result<Cow<'static, str>> {
         let lang = self.server_language();
-        let normalized_name = percent_encoding::utf8_percent_encode(user_name, percent_encoding::NON_ALPHANUMERIC).to_string();
+        let normalized_name =
+            percent_encoding::utf8_percent_encode(user_name, percent_encoding::NON_ALPHANUMERIC)
+                .to_string();
         wikiauthbot_common::msg!(lang, "user_link", normalized_name = normalized_name)
     }
 
